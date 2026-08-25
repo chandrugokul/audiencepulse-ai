@@ -22,12 +22,14 @@ const dashboardData = {
     positive: 68,
     neutral: 21,
     negative: 11,
+
     languages: [
       ["Tamil", 46],
       ["English", 39],
       ["Tamil + English", 11],
       ["Other", 4],
     ],
+
     countries: [
       ["India", 61],
       ["UAE", 13],
@@ -35,49 +37,58 @@ const dashboardData = {
       ["Malaysia", 6],
       ["Other", 12],
     ],
+
     topics: [
       ["Chennai travel", 94],
       ["Budget travel", 88],
       ["Tamil Nadu food", 82],
       ["Hotels", 73],
     ],
+
     questions: [
       ["Which places can we visit in Chennai for one day?", 436],
       ["Can you show budget hotels?", 318],
       ["What is the best time to visit?", 247],
     ],
+
     recommendations: [
       {
         title: "10 Best Places to Visit in Chennai",
         score: 94,
-        reason: "High repeated demand for Chennai travel recommendations.",
+        reason:
+          "High repeated demand for Chennai travel recommendations.",
       },
       {
         title: "Chennai Budget Travel Guide",
         score: 89,
-        reason: "Viewers repeatedly ask about low-cost travel options.",
+        reason:
+          "Viewers repeatedly ask about low-cost travel options.",
       },
       {
         title: "Best Tamil Nadu Food Road Trip",
         score: 84,
-        reason: "Food and destination requests frequently appear together.",
+        reason:
+          "Food and destination requests frequently appear together.",
       },
     ],
   },
 
   "us-technology": {
     title: "US Technology Audience",
-    subtitle: "Demo analysis for English-speaking technology audience",
+    subtitle:
+      "Demo analysis for English-speaking technology audience",
     comments: 18360,
     positive: 74,
     neutral: 18,
     negative: 8,
+
     languages: [
       ["English", 91],
       ["Spanish", 4],
       ["Hindi", 2],
       ["Other", 3],
     ],
+
     countries: [
       ["USA", 54],
       ["Canada", 14],
@@ -85,49 +96,58 @@ const dashboardData = {
       ["Australia", 7],
       ["Other", 14],
     ],
+
     topics: [
       ["AI tools", 96],
       ["Automation", 91],
       ["SaaS", 84],
       ["Developer tools", 79],
     ],
+
     questions: [
       ["Which AI tool is best for beginners?", 528],
       ["Can you compare these tools?", 421],
       ["How much does this cost?", 302],
     ],
+
     recommendations: [
       {
         title: "5 AI Tools Every Beginner Should Try",
         score: 96,
-        reason: "AI tool comparisons show the strongest audience demand.",
+        reason:
+          "AI tool comparisons show the strongest audience demand.",
       },
       {
         title: "Best AI Automation Tools for Creators",
         score: 92,
-        reason: "Automation appears frequently in high-engagement comments.",
+        reason:
+          "Automation appears frequently in high-engagement comments.",
       },
       {
         title: "AI Tools: Free vs Paid Comparison",
         score: 87,
-        reason: "Pricing and comparison questions are repeated often.",
+        reason:
+          "Pricing and comparison questions are repeated often.",
       },
     ],
   },
 
   "hindi-finance": {
     title: "Hindi Finance Audience",
-    subtitle: "Demo analysis for Hindi + English finance audience",
+    subtitle:
+      "Demo analysis for Hindi + English finance audience",
     comments: 15720,
     positive: 71,
     neutral: 20,
     negative: 9,
+
     languages: [
       ["Hindi", 52],
       ["English", 28],
       ["Hindi + English", 16],
       ["Other", 4],
     ],
+
     countries: [
       ["India", 78],
       ["UAE", 8],
@@ -135,32 +155,41 @@ const dashboardData = {
       ["Singapore", 3],
       ["Other", 6],
     ],
+
     topics: [
       ["Mutual funds", 95],
       ["Beginner investing", 91],
       ["Savings", 84],
       ["Budgeting", 76],
     ],
+
     questions: [
       ["How should a beginner start investing?", 612],
-      ["Which mutual fund is suitable for beginners?", 488],
+      [
+        "Which mutual fund is suitable for beginners?",
+        488,
+      ],
       ["How much should I save every month?", 365],
     ],
+
     recommendations: [
       {
         title: "Mutual Funds for Complete Beginners",
         score: 95,
-        reason: "Beginner investing questions dominate the comments.",
+        reason:
+          "Beginner investing questions dominate the comments.",
       },
       {
         title: "How to Start Investing with ₹1,000",
         score: 91,
-        reason: "Viewers repeatedly ask about starting with small amounts.",
+        reason:
+          "Viewers repeatedly ask about starting with small amounts.",
       },
       {
         title: "Monthly Budget Plan for Beginners",
         score: 83,
-        reason: "Savings and budgeting requests show consistent demand.",
+        reason:
+          "Savings and budgeting requests show consistent demand.",
       },
     ],
   },
@@ -169,46 +198,57 @@ const dashboardData = {
 function DashboardContent() {
   const searchParams = useSearchParams();
 
-  const datasetId = searchParams.get("dataset") || "tamil-travel";
+  const datasetId =
+    searchParams.get("dataset") || "tamil-travel";
 
   const data =
-    dashboardData[datasetId as keyof typeof dashboardData] ||
-    dashboardData["tamil-travel"];
+    dashboardData[
+      datasetId as keyof typeof dashboardData
+    ] || dashboardData["tamil-travel"];
 
   return (
-    <main className="min-h-screen bg-slate-50 px-5 py-8">
+    <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        {/* Header */}
+
+        {/* HEADER */}
         <header className="mb-8">
           <button
-            onClick={() => (window.location.href = "/")}
-            className="mb-5 flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-slate-900"
+            onClick={() => {
+              window.location.href = "/";
+            }}
+            className="mb-5 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-900"
           >
             <ArrowLeft size={17} />
             Analyze another video
           </button>
 
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
+          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-2 text-xs font-bold text-amber-800">
                 🟡 DEMO DATA
               </div>
 
-              <h1 className="text-3xl font-bold text-slate-900 md:text-4xl">
+              <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
                 Audience Intelligence
               </h1>
 
-              <p className="mt-2 text-slate-500">{data.subtitle}</p>
+              <p className="mt-2 text-sm text-slate-500 md:text-base">
+                {data.subtitle}
+              </p>
             </div>
 
             <div className="rounded-xl bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-slate-200">
-              <span className="text-slate-400">Dataset:</span>{" "}
-              <strong>{data.title}</strong>
+              <span className="text-slate-400">
+                Dataset:
+              </span>{" "}
+              <strong className="text-slate-800">
+                {data.title}
+              </strong>
             </div>
           </div>
         </header>
 
-        {/* Metrics */}
+        {/* METRICS */}
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Metric
             icon={<Users size={21} />}
@@ -231,18 +271,22 @@ function DashboardContent() {
           <Metric
             icon={<MessageCircleQuestion size={21} />}
             title="Top Questions"
-            value={data.questions.length.toString()}
+            value={String(data.questions.length)}
           />
         </section>
 
-        {/* Sentiment */}
-        <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        {/* SENTIMENT */}
+        <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
           <div className="flex items-center gap-3">
-            <BarChart3 size={22} />
+            <div className="rounded-xl bg-slate-100 p-2">
+              <BarChart3 size={22} />
+            </div>
+
             <div>
               <h2 className="font-bold text-slate-900">
                 Sentiment Analysis
               </h2>
+
               <p className="text-sm text-slate-500">
                 Overall audience reaction
               </p>
@@ -270,8 +314,9 @@ function DashboardContent() {
           </div>
         </section>
 
-        {/* Languages + Countries */}
+        {/* LANGUAGE + LOCATION */}
         <section className="mt-6 grid gap-6 lg:grid-cols-2">
+
           <InsightCard
             title="Language Intelligence"
             icon={<Languages size={21} />}
@@ -297,17 +342,21 @@ function DashboardContent() {
               />
             ))}
 
-            <p className="mt-4 text-xs text-slate-400">
-              Location values are inferred signals for this demo and do not
-              represent exact viewer locations.
+            <p className="mt-4 rounded-lg bg-slate-50 p-3 text-xs leading-5 text-slate-400">
+              Location values are inferred signals for this
+              demo and do not represent exact viewer locations.
             </p>
           </InsightCard>
+
         </section>
 
-        {/* Topics */}
-        <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+        {/* TOPICS */}
+        <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
+
           <div className="flex items-center gap-3">
-            <TrendingUp size={21} />
+            <div className="rounded-xl bg-slate-100 p-2">
+              <TrendingUp size={21} />
+            </div>
 
             <div>
               <h2 className="font-bold text-slate-900">
@@ -324,10 +373,10 @@ function DashboardContent() {
             {data.topics.map(([topic, score], index) => (
               <div
                 key={String(topic)}
-                className="flex items-center justify-between rounded-xl border border-slate-200 p-4"
+                className="flex items-center justify-between rounded-xl border border-slate-200 p-4 transition hover:shadow-sm"
               >
-                <div className="flex items-center gap-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold">
                     {index + 1}
                   </span>
 
@@ -336,7 +385,7 @@ function DashboardContent() {
                   </span>
                 </div>
 
-                <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">
+                <span className="ml-3 shrink-0 rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">
                   {Number(score)}/100
                 </span>
               </div>
@@ -344,21 +393,30 @@ function DashboardContent() {
           </div>
         </section>
 
-        {/* Questions */}
-        <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <div className="flex items-center gap-3">
-            <MessageCircleQuestion size={21} />
+        {/* QUESTIONS */}
+        <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
 
-            <h2 className="font-bold text-slate-900">
-              Audience Question Miner
-            </h2>
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-slate-100 p-2">
+              <MessageCircleQuestion size={21} />
+            </div>
+
+            <div>
+              <h2 className="font-bold text-slate-900">
+                Audience Question Miner
+              </h2>
+
+              <p className="text-sm text-slate-500">
+                Questions repeatedly appearing in audience comments
+              </p>
+            </div>
           </div>
 
           <div className="mt-5 space-y-3">
             {data.questions.map(([question, count]) => (
               <div
                 key={String(question)}
-                className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 p-4 md:flex-row md:items-center"
+                className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 p-4 transition hover:shadow-sm md:flex-row md:items-center"
               >
                 <div>
                   <p className="font-semibold text-slate-800">
@@ -378,10 +436,13 @@ function DashboardContent() {
           </div>
         </section>
 
-        {/* Recommendations */}
-        <section className="mt-6 rounded-3xl bg-slate-900 p-6 text-white shadow-sm md:p-8">
+        {/* RECOMMENDATIONS */}
+        <section className="mt-6 rounded-3xl bg-slate-900 p-5 text-white shadow-sm sm:p-6 md:p-8">
+
           <div className="flex items-center gap-3">
-            <Sparkles size={23} />
+            <div className="rounded-xl bg-white/10 p-2">
+              <Sparkles size={23} />
+            </div>
 
             <div>
               <h2 className="text-xl font-bold">
@@ -418,7 +479,10 @@ function DashboardContent() {
                   {item.reason}
                 </p>
 
-                <button className="mt-5 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900">
+                <button
+                  type="button"
+                  className="mt-5 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100"
+                >
                   Create Content Plan
                 </button>
               </div>
@@ -426,20 +490,32 @@ function DashboardContent() {
           </div>
         </section>
 
-        {/* AI Action Plan */}
-        <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
-          <div className="flex items-center gap-3">
-            <CheckCircle2 size={22} />
+        {/* AI ACTION PLAN */}
+        <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
 
-            <h2 className="font-bold text-slate-900">
-              AI Action Plan
-            </h2>
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-slate-100 p-2">
+              <CheckCircle2 size={22} />
+            </div>
+
+            <div>
+              <h2 className="font-bold text-slate-900">
+                AI Action Plan
+              </h2>
+
+              <p className="text-sm text-slate-500">
+                Recommended next actions from audience signals
+              </p>
+            </div>
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-3">
+
             <Action
               number="1"
-              text={`Create content around "${String(data.topics[0][0])}".`}
+              text={`Create content around "${String(
+                data.topics[0][0]
+              )}".`}
             />
 
             <Action
@@ -455,14 +531,33 @@ function DashboardContent() {
                 data.topics[0][1]
               )}/100 demand score.`}
             />
+
           </div>
         </section>
 
+        {/* FOOTER */}
         <footer className="py-10 text-center text-xs text-slate-400">
           AudiencePulse AI • POC Demo • Data shown is simulated
         </footer>
+
       </div>
     </main>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-slate-50 px-5">
+          <div className="rounded-2xl bg-white px-6 py-5 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
+            Loading Audience Intelligence...
+          </div>
+        </main>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }
 
@@ -476,10 +571,14 @@ function Metric({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
-      <div className="text-slate-500">{icon}</div>
+    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:shadow-md">
+      <div className="text-slate-500">
+        {icon}
+      </div>
 
-      <p className="mt-4 text-sm text-slate-500">{title}</p>
+      <p className="mt-4 text-sm text-slate-500">
+        {title}
+      </p>
 
       <p className="mt-1 text-2xl font-bold text-slate-900">
         {value}
@@ -499,17 +598,19 @@ function Sentiment({
 }) {
   return (
     <div className="rounded-xl border border-slate-200 p-4">
-      <div className="flex justify-between">
-        <span>
+      <div className="flex justify-between text-sm">
+        <span className="font-medium text-slate-700">
           {symbol} {label}
         </span>
 
-        <strong>{value}%</strong>
+        <strong className="text-slate-900">
+          {value}%
+        </strong>
       </div>
 
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full rounded-full bg-slate-900"
+          className="h-full rounded-full bg-slate-900 transition-all"
           style={{ width: `${value}%` }}
         />
       </div>
@@ -525,7 +626,7 @@ function ProgressRow({
   value: number;
 }) {
   return (
-    <div className="mb-4">
+    <div className="mb-5">
       <div className="mb-2 flex justify-between text-sm">
         <span className="font-medium text-slate-700">
           {name}
@@ -538,7 +639,7 @@ function ProgressRow({
 
       <div className="h-2 overflow-hidden rounded-full bg-slate-100">
         <div
-          className="h-full rounded-full bg-slate-900"
+          className="h-full rounded-full bg-slate-900 transition-all"
           style={{ width: `${value}%` }}
         />
       </div>
@@ -556,9 +657,11 @@ function InsightCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
+    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
       <div className="mb-6 flex items-center gap-3">
-        {icon}
+        <div className="rounded-xl bg-slate-100 p-2">
+          {icon}
+        </div>
 
         <h2 className="font-bold text-slate-900">
           {title}
@@ -578,7 +681,7 @@ function Action({
   text: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 p-4">
+    <div className="rounded-xl border border-slate-200 p-4 transition hover:shadow-sm">
       <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
         {number}
       </div>
@@ -587,21 +690,5 @@ function Action({
         {text}
       </p>
     </div>
-  );
-}
-
-export default function DashboardPage() {
-  return (
-    <Suspense
-      fallback={
-        <main className="flex min-h-screen items-center justify-center bg-slate-50">
-          <div className="rounded-xl bg-white px-6 py-4 text-sm font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200">
-            Loading AudiencePulse Dashboard...
-          </div>
-        </main>
-      }
-    >
-      <DashboardContent />
-    </Suspense>
   );
 }
