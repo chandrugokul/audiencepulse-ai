@@ -287,11 +287,11 @@ export default function DashboardPage() {
             icon={<Globe2 size={21} />}
           >
             {data.countries.map(([name, value]) => (
-              <ProgressRow
-                key={name}
-                name={name}
-                value={Number(value)}
-              />
+             <ProgressRow
+  key={String(name)}
+  name={String(name)}
+  value={Number(value)}
+/>
             ))}
 
             <p className="mt-4 text-xs text-slate-400">
