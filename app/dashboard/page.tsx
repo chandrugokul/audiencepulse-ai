@@ -275,10 +275,10 @@ export default function DashboardPage() {
           >
             {data.languages.map(([name, value]) => (
               <ProgressRow
-                key={name}
-                name={name}
-                value={Number(value)}
-              />
+  key={String(name)}
+  name={String(name)}
+  value={Number(value)}
+/>
             ))}
           </InsightCard>
 
