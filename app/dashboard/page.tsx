@@ -14,7 +14,25 @@ import {
   Users,
 } from "lucide-react";
 
-const dashboardData = {
+type DataSet = {
+  title: string;
+  subtitle: string;
+  comments: number;
+  positive: number;
+  neutral: number;
+  negative: number;
+  languages: [string, number][];
+  countries: [string, number][];
+  topics: [string, number][];
+  questions: [string, number][];
+  recommendations: {
+    title: string;
+    score: number;
+    reason: string;
+  }[];
+};
+
+const dashboardData: Record<string, DataSet> = {
   "tamil-travel": {
     title: "Tamil Travel Audience",
     subtitle: "Demo analysis for Tamil + English travel audience",
@@ -75,8 +93,7 @@ const dashboardData = {
 
   "us-technology": {
     title: "US Technology Audience",
-    subtitle:
-      "Demo analysis for English-speaking technology audience",
+    subtitle: "Demo analysis for English-speaking technology audience",
     comments: 18360,
     positive: 74,
     neutral: 18,
@@ -134,8 +151,7 @@ const dashboardData = {
 
   "hindi-finance": {
     title: "Hindi Finance Audience",
-    subtitle:
-      "Demo analysis for Hindi + English finance audience",
+    subtitle: "Demo analysis for Hindi + English finance audience",
     comments: 15720,
     positive: 71,
     neutral: 20,
@@ -165,10 +181,7 @@ const dashboardData = {
 
     questions: [
       ["How should a beginner start investing?", 612],
-      [
-        "Which mutual fund is suitable for beginners?",
-        488,
-      ],
+      ["Which mutual fund is suitable for beginners?", 488],
       ["How much should I save every month?", 365],
     ],
 
@@ -202,98 +215,88 @@ function DashboardContent() {
     searchParams.get("dataset") || "tamil-travel";
 
   const data =
-    dashboardData[
-      datasetId as keyof typeof dashboardData
-    ] || dashboardData["tamil-travel"];
+    dashboardData[datasetId] ||
+    dashboardData["tamil-travel"];
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+    <main style={styles.page}>
+      <div style={styles.container}>
 
-        {/* HEADER */}
-        <header className="mb-8">
-          <button
-            onClick={() => {
-              window.location.href = "/";
-            }}
-            className="mb-5 inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-500 transition hover:bg-white hover:text-slate-900"
-          >
-            <ArrowLeft size={17} />
-            Analyze another video
-          </button>
+        {/* Back */}
+        <button
+          onClick={() => {
+            window.location.href = "/";
+          }}
+          style={styles.backButton}
+        >
+          <ArrowLeft size={17} />
+          Analyze another video
+        </button>
 
-          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-amber-100 px-3 py-2 text-xs font-bold text-amber-800">
-                🟡 DEMO DATA
-              </div>
-
-              <h1 className="text-3xl font-bold tracking-tight text-slate-900 md:text-4xl">
-                Audience Intelligence
-              </h1>
-
-              <p className="mt-2 text-sm text-slate-500 md:text-base">
-                {data.subtitle}
-              </p>
+        {/* Header */}
+        <header style={styles.header}>
+          <div>
+            <div style={styles.demoBadge}>
+              🟡 DEMO DATA
             </div>
 
-            <div className="rounded-xl bg-white px-4 py-3 text-sm shadow-sm ring-1 ring-slate-200">
-              <span className="text-slate-400">
-                Dataset:
-              </span>{" "}
-              <strong className="text-slate-800">
-                {data.title}
-              </strong>
-            </div>
+            <h1 style={styles.title}>
+              Audience Intelligence
+            </h1>
+
+            <p style={styles.subtitle}>
+              {data.subtitle}
+            </p>
+          </div>
+
+          <div style={styles.datasetBox}>
+            <span style={{ color: "#64748b" }}>
+              Dataset:
+            </span>{" "}
+            <strong>{data.title}</strong>
           </div>
         </header>
 
-        {/* METRICS */}
-        <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* Metrics */}
+        <section style={styles.metricsGrid}>
+
           <Metric
-            icon={<Users size={21} />}
+            icon={<Users size={22} />}
             title="Comments Analyzed"
             value={data.comments.toLocaleString()}
           />
 
           <Metric
-            icon={<Languages size={21} />}
+            icon={<Languages size={22} />}
             title="Languages"
             value={String(data.languages.length)}
           />
 
           <Metric
-            icon={<Globe2 size={21} />}
+            icon={<Globe2 size={22} />}
             title="Countries"
             value={String(data.countries.length)}
           />
 
           <Metric
-            icon={<MessageCircleQuestion size={21} />}
+            icon={<MessageCircleQuestion size={22} />}
             title="Top Questions"
             value={String(data.questions.length)}
           />
+
         </section>
 
-        {/* SENTIMENT */}
-        <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-2">
-              <BarChart3 size={22} />
-            </div>
+        {/* Sentiment */}
+        <section style={styles.card}>
 
-            <div>
-              <h2 className="font-bold text-slate-900">
-                Sentiment Analysis
-              </h2>
+          <SectionHeader
+            icon={<BarChart3 size={22} />}
+            title="Sentiment Analysis"
+            subtitle="Overall audience reaction"
+          />
 
-              <p className="text-sm text-slate-500">
-                Overall audience reaction
-              </p>
-            </div>
-          </div>
+          <div style={styles.threeGrid}>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
             <Sentiment
               label="Positive"
               value={data.positive}
@@ -311,11 +314,12 @@ function DashboardContent() {
               value={data.negative}
               symbol="😕"
             />
+
           </div>
         </section>
 
-        {/* LANGUAGE + LOCATION */}
-        <section className="mt-6 grid gap-6 lg:grid-cols-2">
+        {/* Language + Country */}
+        <section style={styles.twoGrid}>
 
           <InsightCard
             title="Language Intelligence"
@@ -323,9 +327,9 @@ function DashboardContent() {
           >
             {data.languages.map(([name, value]) => (
               <ProgressRow
-                key={String(name)}
-                name={String(name)}
-                value={Number(value)}
+                key={name}
+                name={name}
+                value={value}
               />
             ))}
           </InsightCard>
@@ -336,13 +340,13 @@ function DashboardContent() {
           >
             {data.countries.map(([name, value]) => (
               <ProgressRow
-                key={String(name)}
-                name={String(name)}
-                value={Number(value)}
+                key={name}
+                name={name}
+                value={value}
               />
             ))}
 
-            <p className="mt-4 rounded-lg bg-slate-50 p-3 text-xs leading-5 text-slate-400">
+            <p style={styles.note}>
               Location values are inferred signals for this
               demo and do not represent exact viewer locations.
             </p>
@@ -350,193 +354,157 @@ function DashboardContent() {
 
         </section>
 
-        {/* TOPICS */}
-        <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
+        {/* Topics */}
+        <section style={styles.card}>
 
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-2">
-              <TrendingUp size={21} />
-            </div>
+          <SectionHeader
+            icon={<TrendingUp size={21} />}
+            title="Trending Topics & Demand"
+            subtitle="Topics your audience appears to care about"
+          />
 
-            <div>
-              <h2 className="font-bold text-slate-900">
-                Trending Topics & Demand
-              </h2>
+          <div style={styles.topicGrid}>
 
-              <p className="text-sm text-slate-500">
-                Topics your audience appears to care about
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {data.topics.map(([topic, score], index) => (
               <div
-                key={String(topic)}
-                className="flex items-center justify-between rounded-xl border border-slate-200 p-4 transition hover:shadow-sm"
+                key={topic}
+                style={styles.topicItem}
               >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold">
+                <div style={styles.topicLeft}>
+
+                  <span style={styles.rank}>
                     {index + 1}
                   </span>
 
-                  <span className="font-semibold text-slate-800">
-                    {String(topic)}
+                  <span style={styles.topicName}>
+                    {topic}
                   </span>
+
                 </div>
 
-                <span className="ml-3 shrink-0 rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">
-                  {Number(score)}/100
+                <span style={styles.score}>
+                  {score}/100
                 </span>
               </div>
             ))}
+
           </div>
         </section>
 
-        {/* QUESTIONS */}
-        <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
+        {/* Questions */}
+        <section style={styles.card}>
 
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-2">
-              <MessageCircleQuestion size={21} />
-            </div>
+          <SectionHeader
+            icon={<MessageCircleQuestion size={21} />}
+            title="Audience Question Miner"
+            subtitle="Questions repeatedly appearing in audience comments"
+          />
 
-            <div>
-              <h2 className="font-bold text-slate-900">
-                Audience Question Miner
-              </h2>
+          <div>
 
-              <p className="text-sm text-slate-500">
-                Questions repeatedly appearing in audience comments
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 space-y-3">
             {data.questions.map(([question, count]) => (
               <div
-                key={String(question)}
-                className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 p-4 transition hover:shadow-sm md:flex-row md:items-center"
+                key={question}
+                style={styles.questionItem}
               >
-                <div>
-                  <p className="font-semibold text-slate-800">
-                    {String(question)}
+
+                <div style={{ flex: 1 }}>
+                  <p style={styles.questionText}>
+                    {question}
                   </p>
 
-                  <p className="mt-1 text-sm text-slate-500">
-                    Asked {Number(count).toLocaleString()} times
+                  <p style={styles.questionCount}>
+                    Asked {count.toLocaleString()} times
                   </p>
                 </div>
 
-                <span className="whitespace-nowrap rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
+                <span style={styles.opportunity}>
                   Opportunity
                 </span>
+
               </div>
             ))}
+
           </div>
         </section>
 
-        {/* RECOMMENDATIONS */}
-        <section className="mt-6 rounded-3xl bg-slate-900 p-5 text-white shadow-sm sm:p-6 md:p-8">
+        {/* Recommendations */}
+        <section style={styles.darkCard}>
 
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-white/10 p-2">
-              <Sparkles size={23} />
-            </div>
+          <SectionHeader
+            icon={<Sparkles size={23} />}
+            title="What Should You Create Next?"
+            subtitle="Demo content opportunity engine"
+            dark
+          />
 
-            <div>
-              <h2 className="text-xl font-bold">
-                What Should You Create Next?
-              </h2>
+          <div style={styles.recommendGrid}>
 
-              <p className="text-sm text-slate-400">
-                Demo content opportunity engine
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-6 grid gap-4 lg:grid-cols-3">
             {data.recommendations.map((item, index) => (
               <div
                 key={item.title}
-                className="rounded-2xl bg-white/10 p-5 ring-1 ring-white/10"
+                style={styles.recommendCard}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-bold text-slate-400">
+
+                <div style={styles.recommendTop}>
+
+                  <span style={styles.number}>
                     #{index + 1}
                   </span>
 
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-slate-900">
+                  <span style={styles.recommendScore}>
                     {item.score}/100
                   </span>
+
                 </div>
 
-                <h3 className="mt-4 text-lg font-bold">
+                <h3 style={styles.recommendTitle}>
                   {item.title}
                 </h3>
 
-                <p className="mt-3 text-sm leading-6 text-slate-300">
+                <p style={styles.recommendReason}>
                   {item.reason}
                 </p>
 
-                <button
-                  type="button"
-                  className="mt-5 w-full rounded-xl bg-white px-4 py-3 text-sm font-bold text-slate-900 transition hover:bg-slate-100"
-                >
+                <button style={styles.planButton}>
                   Create Content Plan
                 </button>
+
               </div>
             ))}
+
           </div>
         </section>
 
-        {/* AI ACTION PLAN */}
-        <section className="mt-6 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
+        {/* Action Plan */}
+        <section style={styles.card}>
 
-          <div className="flex items-center gap-3">
-            <div className="rounded-xl bg-slate-100 p-2">
-              <CheckCircle2 size={22} />
-            </div>
+          <SectionHeader
+            icon={<CheckCircle2 size={22} />}
+            title="AI Action Plan"
+          />
 
-            <div>
-              <h2 className="font-bold text-slate-900">
-                AI Action Plan
-              </h2>
-
-              <p className="text-sm text-slate-500">
-                Recommended next actions from audience signals
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div style={styles.threeGrid}>
 
             <Action
               number="1"
-              text={`Create content around "${String(
-                data.topics[0][0]
-              )}".`}
+              text={`Create content around "${data.topics[0][0]}".`}
             />
 
             <Action
               number="2"
-              text={`Answer the audience question: "${String(
-                data.questions[0][0]
-              )}"`}
+              text={`Answer the audience question: "${data.questions[0][0]}"`}
             />
 
             <Action
               number="3"
-              text={`Prioritize the topic with a ${Number(
-                data.topics[0][1]
-              )}/100 demand score.`}
+              text={`Prioritize the topic with a ${data.topics[0][1]}/100 demand score.`}
             />
 
           </div>
         </section>
 
-        {/* FOOTER */}
-        <footer className="py-10 text-center text-xs text-slate-400">
+        <footer style={styles.footer}>
           AudiencePulse AI • POC Demo • Data shown is simulated
         </footer>
 
@@ -545,21 +513,7 @@ function DashboardContent() {
   );
 }
 
-export default function DashboardPage() {
-  return (
-    <Suspense
-      fallback={
-        <main className="flex min-h-screen items-center justify-center bg-slate-50 px-5">
-          <div className="rounded-2xl bg-white px-6 py-5 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
-            Loading Audience Intelligence...
-          </div>
-        </main>
-      }
-    >
-      <DashboardContent />
-    </Suspense>
-  );
-}
+/* ---------------- Components ---------------- */
 
 function Metric({
   icon,
@@ -571,16 +525,16 @@ function Metric({
   value: string;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:shadow-md">
-      <div className="text-slate-500">
+    <div style={styles.metricCard}>
+      <div style={styles.metricIcon}>
         {icon}
       </div>
 
-      <p className="mt-4 text-sm text-slate-500">
+      <p style={styles.metricTitle}>
         {title}
       </p>
 
-      <p className="mt-1 text-2xl font-bold text-slate-900">
+      <p style={styles.metricValue}>
         {value}
       </p>
     </div>
@@ -597,23 +551,25 @@ function Sentiment({
   symbol: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 p-4">
-      <div className="flex justify-between text-sm">
-        <span className="font-medium text-slate-700">
+    <div style={styles.sentimentCard}>
+
+      <div style={styles.sentimentTop}>
+        <span>
           {symbol} {label}
         </span>
 
-        <strong className="text-slate-900">
-          {value}%
-        </strong>
+        <strong>{value}%</strong>
       </div>
 
-      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+      <div style={styles.progressBackground}>
         <div
-          className="h-full rounded-full bg-slate-900 transition-all"
-          style={{ width: `${value}%` }}
+          style={{
+            ...styles.progressFill,
+            width: `${value}%`,
+          }}
         />
       </div>
+
     </div>
   );
 }
@@ -626,23 +582,22 @@ function ProgressRow({
   value: number;
 }) {
   return (
-    <div className="mb-5">
-      <div className="mb-2 flex justify-between text-sm">
-        <span className="font-medium text-slate-700">
-          {name}
-        </span>
+    <div style={{ marginBottom: 18 }}>
 
-        <span className="font-bold text-slate-900">
-          {value}%
-        </span>
+      <div style={styles.progressTop}>
+        <span>{name}</span>
+        <strong>{value}%</strong>
       </div>
 
-      <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+      <div style={styles.progressBackground}>
         <div
-          className="h-full rounded-full bg-slate-900 transition-all"
-          style={{ width: `${value}%` }}
+          style={{
+            ...styles.progressFill,
+            width: `${value}%`,
+          }}
         />
       </div>
+
     </div>
   );
 }
@@ -657,18 +612,65 @@ function InsightCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 sm:p-6">
-      <div className="mb-6 flex items-center gap-3">
-        <div className="rounded-xl bg-slate-100 p-2">
-          {icon}
-        </div>
+    <div style={styles.card}>
 
-        <h2 className="font-bold text-slate-900">
+      <div style={styles.sectionHeader}>
+        {icon}
+        <h2 style={styles.sectionTitle}>
           {title}
         </h2>
       </div>
 
       {children}
+
+    </div>
+  );
+}
+
+function SectionHeader({
+  icon,
+  title,
+  subtitle,
+  dark = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  dark?: boolean;
+}) {
+  return (
+    <div style={styles.sectionHeader}>
+
+      <div
+        style={{
+          color: dark ? "#fff" : "#0f172a",
+        }}
+      >
+        {icon}
+      </div>
+
+      <div>
+        <h2
+          style={{
+            ...styles.sectionTitle,
+            color: dark ? "#fff" : "#0f172a",
+          }}
+        >
+          {title}
+        </h2>
+
+        {subtitle && (
+          <p
+            style={{
+              ...styles.sectionSubtitle,
+              color: dark ? "#94a3b8" : "#64748b",
+            }}
+          >
+            {subtitle}
+          </p>
+        )}
+      </div>
+
     </div>
   );
 }
@@ -681,14 +683,414 @@ function Action({
   text: string;
 }) {
   return (
-    <div className="rounded-xl border border-slate-200 p-4 transition hover:shadow-sm">
-      <div className="mb-3 flex h-8 w-8 items-center justify-center rounded-full bg-slate-900 text-sm font-bold text-white">
+    <div style={styles.actionCard}>
+
+      <div style={styles.actionNumber}>
         {number}
       </div>
 
-      <p className="text-sm leading-6 text-slate-600">
+      <p style={styles.actionText}>
         {text}
       </p>
+
     </div>
+  );
+}
+
+/* ---------------- Styles ---------------- */
+
+const styles: Record<string, React.CSSProperties> = {
+  page: {
+    minHeight: "100vh",
+    background: "#f8fafc",
+    color: "#0f172a",
+    padding: "24px 16px",
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+  },
+
+  container: {
+    width: "100%",
+    maxWidth: 1200,
+    margin: "0 auto",
+  },
+
+  backButton: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    fontWeight: 600,
+    color: "#475569",
+    padding: "8px 0",
+    marginBottom: 22,
+    fontSize: 14,
+  },
+
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    gap: 20,
+    flexWrap: "wrap",
+    marginBottom: 28,
+  },
+
+  demoBadge: {
+    display: "inline-block",
+    background: "#fef3c7",
+    color: "#92400e",
+    padding: "7px 12px",
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 800,
+    marginBottom: 12,
+  },
+
+  title: {
+    fontSize: "clamp(30px, 6vw, 44px)",
+    lineHeight: 1.1,
+    margin: 0,
+    fontWeight: 800,
+    letterSpacing: "-1px",
+  },
+
+  subtitle: {
+    color: "#64748b",
+    marginTop: 10,
+    fontSize: 15,
+  },
+
+  datasetBox: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 12,
+    padding: "12px 16px",
+    fontSize: 14,
+    boxShadow: "0 2px 8px rgba(15,23,42,.04)",
+  },
+
+  metricsGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: 16,
+    marginBottom: 18,
+  },
+
+  metricCard: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 18,
+    padding: 20,
+    boxShadow: "0 3px 12px rgba(15,23,42,.05)",
+  },
+
+  metricIcon: {
+    color: "#475569",
+  },
+
+  metricTitle: {
+    color: "#64748b",
+    fontSize: 14,
+    marginTop: 16,
+    marginBottom: 4,
+  },
+
+  metricValue: {
+    fontSize: 28,
+    fontWeight: 800,
+    margin: 0,
+  },
+
+  card: {
+    background: "#fff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 20,
+    padding: 22,
+    marginTop: 18,
+    boxShadow: "0 3px 12px rgba(15,23,42,.05)",
+  },
+
+  darkCard: {
+    background: "#0f172a",
+    borderRadius: 24,
+    padding: 24,
+    marginTop: 18,
+    color: "#fff",
+    boxShadow: "0 5px 20px rgba(15,23,42,.12)",
+  },
+
+  sectionHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 20,
+  },
+
+  sectionTitle: {
+    margin: 0,
+    fontSize: 20,
+    fontWeight: 800,
+  },
+
+  sectionSubtitle: {
+    margin: "4px 0 0",
+    fontSize: 13,
+  },
+
+  threeGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(190px, 1fr))",
+    gap: 14,
+  },
+
+  twoGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: 18,
+  },
+
+  sentimentCard: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    padding: 16,
+  },
+
+  sentimentTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 10,
+    fontSize: 14,
+  },
+
+  progressBackground: {
+    height: 8,
+    background: "#e2e8f0",
+    borderRadius: 999,
+    overflow: "hidden",
+    marginTop: 10,
+  },
+
+  progressFill: {
+    height: "100%",
+    background: "#0f172a",
+    borderRadius: 999,
+  },
+
+  progressTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    fontSize: 14,
+    marginBottom: 7,
+    color: "#475569",
+  },
+
+  note: {
+    color: "#94a3b8",
+    fontSize: 12,
+    lineHeight: 1.5,
+    marginTop: 4,
+  },
+
+  topicGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: 12,
+  },
+
+  topicItem: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    padding: 14,
+  },
+
+  topicLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  rank: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    background: "#f1f5f9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 800,
+    fontSize: 13,
+  },
+
+  topicName: {
+    fontWeight: 700,
+    fontSize: 14,
+  },
+
+  score: {
+    background: "#0f172a",
+    color: "#fff",
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+
+  questionItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 16,
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 10,
+    flexWrap: "wrap",
+  },
+
+  questionText: {
+    margin: 0,
+    fontWeight: 700,
+    fontSize: 14,
+    lineHeight: 1.5,
+  },
+
+  questionCount: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: 12,
+  },
+
+  opportunity: {
+    background: "#fef3c7",
+    color: "#92400e",
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: 800,
+  },
+
+  recommendGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: 14,
+  },
+
+  recommendCard: {
+    background: "rgba(255,255,255,.08)",
+    border: "1px solid rgba(255,255,255,.10)",
+    borderRadius: 18,
+    padding: 18,
+  },
+
+  recommendTop: {
+    display: "flex",
+    justifyContent: "space-between",
+  },
+
+  number: {
+    color: "#94a3b8",
+    fontWeight: 800,
+  },
+
+  recommendScore: {
+    background: "#fff",
+    color: "#0f172a",
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: 800,
+  },
+
+  recommendTitle: {
+    fontSize: 18,
+    lineHeight: 1.3,
+    margin: "18px 0 0",
+  },
+
+  recommendReason: {
+    color: "#cbd5e1",
+    fontSize: 13,
+    lineHeight: 1.6,
+    minHeight: 62,
+  },
+
+  planButton: {
+    width: "100%",
+    border: "none",
+    borderRadius: 12,
+    padding: "12px 14px",
+    background: "#fff",
+    color: "#0f172a",
+    fontWeight: 800,
+    cursor: "pointer",
+    marginTop: 10,
+  },
+
+  actionCard: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    padding: 16,
+  },
+
+  actionNumber: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    background: "#0f172a",
+    color: "#fff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 13,
+    fontWeight: 800,
+    marginBottom: 12,
+  },
+
+  actionText: {
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 1.6,
+    margin: 0,
+  },
+
+  footer: {
+    textAlign: "center",
+    color: "#94a3b8",
+    fontSize: 11,
+    padding: "32px 0 12px",
+  },
+};
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div
+          style={{
+            minHeight: "100vh",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "system-ui",
+          }}
+        >
+          Loading AudiencePulse...
+        </div>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }
