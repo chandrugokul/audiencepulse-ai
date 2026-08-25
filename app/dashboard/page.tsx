@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -165,7 +166,7 @@ const dashboardData = {
   },
 };
 
-export default function DashboardPage() {
+function DashboardContent() {
   const searchParams = useSearchParams();
 
   const datasetId = searchParams.get("dataset") || "tamil-travel";
@@ -254,11 +255,13 @@ export default function DashboardPage() {
               value={data.positive}
               symbol="😊"
             />
+
             <Sentiment
               label="Neutral"
               value={data.neutral}
               symbol="😐"
             />
+
             <Sentiment
               label="Negative"
               value={data.negative}
@@ -275,10 +278,10 @@ export default function DashboardPage() {
           >
             {data.languages.map(([name, value]) => (
               <ProgressRow
-  key={String(name)}
-  name={String(name)}
-  value={Number(value)}
-/>
+                key={String(name)}
+                name={String(name)}
+                value={Number(value)}
+              />
             ))}
           </InsightCard>
 
@@ -287,11 +290,11 @@ export default function DashboardPage() {
             icon={<Globe2 size={21} />}
           >
             {data.countries.map(([name, value]) => (
-             <ProgressRow
-  key={String(name)}
-  name={String(name)}
-  value={Number(value)}
-/>
+              <ProgressRow
+                key={String(name)}
+                name={String(name)}
+                value={Number(value)}
+              />
             ))}
 
             <p className="mt-4 text-xs text-slate-400">
@@ -305,10 +308,12 @@ export default function DashboardPage() {
         <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <div className="flex items-center gap-3">
             <TrendingUp size={21} />
+
             <div>
               <h2 className="font-bold text-slate-900">
                 Trending Topics & Demand
               </h2>
+
               <p className="text-sm text-slate-500">
                 Topics your audience appears to care about
               </p>
@@ -318,20 +323,21 @@ export default function DashboardPage() {
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             {data.topics.map(([topic, score], index) => (
               <div
-                key={topic}
+                key={String(topic)}
                 className="flex items-center justify-between rounded-xl border border-slate-200 p-4"
               >
                 <div className="flex items-center gap-3">
                   <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold">
                     {index + 1}
                   </span>
+
                   <span className="font-semibold text-slate-800">
-                    {topic}
+                    {String(topic)}
                   </span>
                 </div>
 
                 <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-bold text-white">
-                  {score}/100
+                  {Number(score)}/100
                 </span>
               </div>
             ))}
@@ -342,6 +348,7 @@ export default function DashboardPage() {
         <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <div className="flex items-center gap-3">
             <MessageCircleQuestion size={21} />
+
             <h2 className="font-bold text-slate-900">
               Audience Question Miner
             </h2>
@@ -350,13 +357,16 @@ export default function DashboardPage() {
           <div className="mt-5 space-y-3">
             {data.questions.map(([question, count]) => (
               <div
-                key={question}
+                key={String(question)}
                 className="flex flex-col justify-between gap-3 rounded-xl border border-slate-200 p-4 md:flex-row md:items-center"
               >
                 <div>
-                  <p className="font-semibold text-slate-800">{question}</p>
+                  <p className="font-semibold text-slate-800">
+                    {String(question)}
+                  </p>
+
                   <p className="mt-1 text-sm text-slate-500">
-                    Asked {count.toLocaleString()} times
+                    Asked {Number(count).toLocaleString()} times
                   </p>
                 </div>
 
@@ -372,10 +382,12 @@ export default function DashboardPage() {
         <section className="mt-6 rounded-3xl bg-slate-900 p-6 text-white shadow-sm md:p-8">
           <div className="flex items-center gap-3">
             <Sparkles size={23} />
+
             <div>
               <h2 className="text-xl font-bold">
                 What Should You Create Next?
               </h2>
+
               <p className="text-sm text-slate-400">
                 Demo content opportunity engine
               </p>
@@ -398,7 +410,9 @@ export default function DashboardPage() {
                   </span>
                 </div>
 
-                <h3 className="mt-4 text-lg font-bold">{item.title}</h3>
+                <h3 className="mt-4 text-lg font-bold">
+                  {item.title}
+                </h3>
 
                 <p className="mt-3 text-sm leading-6 text-slate-300">
                   {item.reason}
@@ -416,23 +430,30 @@ export default function DashboardPage() {
         <section className="mt-6 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
           <div className="flex items-center gap-3">
             <CheckCircle2 size={22} />
-            <h2 className="font-bold text-slate-900">AI Action Plan</h2>
+
+            <h2 className="font-bold text-slate-900">
+              AI Action Plan
+            </h2>
           </div>
 
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <Action
               number="1"
-              text={`Create content around "${data.topics[0][0]}".`}
+              text={`Create content around "${String(data.topics[0][0])}".`}
             />
 
             <Action
               number="2"
-              text={`Answer the audience question: "${data.questions[0][0]}"`}
+              text={`Answer the audience question: "${String(
+                data.questions[0][0]
+              )}"`}
             />
 
             <Action
               number="3"
-              text={`Prioritize the topic with a ${data.topics[0][1]}/100 demand score.`}
+              text={`Prioritize the topic with a ${Number(
+                data.topics[0][1]
+              )}/100 demand score.`}
             />
           </div>
         </section>
@@ -457,8 +478,12 @@ function Metric({
   return (
     <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
       <div className="text-slate-500">{icon}</div>
+
       <p className="mt-4 text-sm text-slate-500">{title}</p>
-      <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
+
+      <p className="mt-1 text-2xl font-bold text-slate-900">
+        {value}
+      </p>
     </div>
   );
 }
@@ -478,6 +503,7 @@ function Sentiment({
         <span>
           {symbol} {label}
         </span>
+
         <strong>{value}%</strong>
       </div>
 
@@ -501,8 +527,13 @@ function ProgressRow({
   return (
     <div className="mb-4">
       <div className="mb-2 flex justify-between text-sm">
-        <span className="font-medium text-slate-700">{name}</span>
-        <span className="font-bold text-slate-900">{value}%</span>
+        <span className="font-medium text-slate-700">
+          {name}
+        </span>
+
+        <span className="font-bold text-slate-900">
+          {value}%
+        </span>
       </div>
 
       <div className="h-2 overflow-hidden rounded-full bg-slate-100">
@@ -528,7 +559,10 @@ function InsightCard({
     <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
       <div className="mb-6 flex items-center gap-3">
         {icon}
-        <h2 className="font-bold text-slate-900">{title}</h2>
+
+        <h2 className="font-bold text-slate-900">
+          {title}
+        </h2>
       </div>
 
       {children}
@@ -549,7 +583,25 @@ function Action({
         {number}
       </div>
 
-      <p className="text-sm leading-6 text-slate-600">{text}</p>
+      <p className="text-sm leading-6 text-slate-600">
+        {text}
+      </p>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-slate-50">
+          <div className="rounded-xl bg-white px-6 py-4 text-sm font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200">
+            Loading AudiencePulse Dashboard...
+          </div>
+        </main>
+      }
+    >
+      <DashboardContent />
+    </Suspense>
   );
 }
