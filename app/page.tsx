@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   BarChart3,
+  FileText,
   Globe2,
   MessageSquare,
+  Play,
   Sparkles,
-  Youtube,
-  ArrowRight,
-  CheckCircle2,
+  Upload,
+  X,
 } from "lucide-react";
 
 const datasets = [
@@ -20,7 +21,7 @@ const datasets = [
   {
     id: "us-technology",
     name: "US Technology",
-    description: "English • USA / Canada • Technology",
+    description: "English • USA/Canada • Technology",
   },
   {
     id: "hindi-finance",
@@ -32,995 +33,520 @@ const datasets = [
 export default function Home() {
   const [url, setUrl] = useState("");
   const [dataset, setDataset] = useState("tamil-travel");
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  function isValidYouTubeUrl(value: string) {
-    try {
-      const parsed = new URL(value);
+  const [csvFile, setCsvFile] = useState<File | null>(null);
 
-      return (
-        parsed.hostname.includes("youtube.com") ||
-        parsed.hostname.includes("youtu.be")
-      );
-    } catch {
-      return false;
-    }
-  }
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function analyzeVideo() {
-    const trimmedUrl = url.trim();
+  // ----------------------------------------
+  // REAL YOUTUBE ANALYSIS
+  // ----------------------------------------
 
-    if (!trimmedUrl) {
-      setMessage("Please enter a YouTube video URL.");
-      return;
-    }
-
-    if (!isValidYouTubeUrl(trimmedUrl)) {
-      setMessage(
-        "Please enter a valid YouTube URL."
-      );
+  async function analyzeVideo() {
+    if (!url.trim()) {
+      setMessage("Please enter a YouTube URL.");
       return;
     }
 
     setMessage("");
     setLoading(true);
 
-    setTimeout(() => {
+    try {
+      const response = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          url: url.trim(),
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error || "Unable to analyze YouTube video."
+        );
+      }
+
+      sessionStorage.setItem(
+        "audiencepulse-analysis",
+        JSON.stringify(data)
+      );
+
       const params = new URLSearchParams({
         dataset,
-        url: trimmedUrl,
+        url: url.trim(),
+        videoId: data.video?.id || "",
+        source: "youtube",
+      });
+
+      window.location.href = `/dashboard?${params.toString()}`;
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong."
+      );
+
+      setLoading(false);
+    }
+  }
+
+  // ----------------------------------------
+  // CSV FILE SELECT
+  // ----------------------------------------
+
+  function handleFileChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    if (
+      !file.name.toLowerCase().endsWith(".csv")
+    ) {
+      setMessage("Please upload a CSV file.");
+      return;
+    }
+
+    setMessage("");
+    setCsvFile(file);
+  }
+
+  function removeCsv() {
+    setCsvFile(null);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  // ----------------------------------------
+  // CSV ANALYSIS
+  // ----------------------------------------
+
+  async function analyzeCSV() {
+    if (!csvFile) {
+      setMessage("Please select a CSV file.");
+      return;
+    }
+
+    setMessage("");
+    setLoading(true);
+
+    try {
+      const formData = new FormData();
+
+      formData.append("file", csvFile);
+      formData.append("dataset", dataset);
+
+      const response = await fetch(
+        "/api/analyze-csv",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            "Unable to analyze CSV file."
+        );
+      }
+
+      sessionStorage.setItem(
+        "audiencepulse-analysis",
+        JSON.stringify(data)
+      );
+
+      const params = new URLSearchParams({
+        dataset,
+        source: "csv",
       });
 
       window.location.href =
         `/dashboard?${params.toString()}`;
-    }, 1200);
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong."
+      );
+
+      setLoading(false);
+    }
   }
 
   return (
-    <>
-      <style>{`
-        * {
-          box-sizing: border-box;
-        }
+    <main style={styles.page}>
+      <div style={styles.container}>
 
-        body {
-          margin: 0;
-          background: #f8fafc;
-          color: #0f172a;
-          font-family:
-            Inter,
-            ui-sans-serif,
-            system-ui,
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-        }
+        {/* HEADER */}
 
-        button,
-        input {
-          font: inherit;
-        }
+        <header style={styles.header}>
 
-        .ap-page {
-          min-height: 100vh;
-          background: #f8fafc;
-          padding: 24px 16px;
-        }
+          <div style={styles.badge}>
+            <Sparkles size={14} />
+            Audience Intelligence Platform
+          </div>
 
-        .ap-container {
-          width: 100%;
-          max-width: 1200px;
-          margin: 0 auto;
-        }
+          <h1 style={styles.heroTitle}>
+            AudiencePulse AI
+          </h1>
 
-        /* Header */
+          <p style={styles.heroText}>
+            Turn YouTube comments into audience intelligence
+            and discover what your viewers want you to create next.
+          </p>
 
-        .ap-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 24px;
-        }
+        </header>
 
-        .ap-brand {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          font-size: 16px;
-          font-weight: 800;
-        }
+        {/* MAIN ANALYSIS CARD */}
 
-        .ap-brand-icon {
-          width: 38px;
-          height: 38px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 12px;
-          background: #0f172a;
-          color: white;
-        }
+        <section style={styles.mainCard}>
 
-        .ap-demo {
-          display: inline-flex;
-          align-items: center;
-          border-radius: 999px;
-          padding: 7px 12px;
-          background: #fef3c7;
-          color: #92400e;
-          font-size: 12px;
-          font-weight: 800;
-        }
+          <div style={styles.cardHeader}>
 
-        /* Hero */
-
-        .ap-hero {
-          background: #0f172a;
-          color: white;
-          border-radius: 28px;
-          padding: 52px 42px;
-          margin-bottom: 20px;
-          box-shadow: 0 8px 30px rgba(15, 23, 42, 0.12);
-        }
-
-        .ap-hero-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 7px;
-          padding: 8px 12px;
-          border-radius: 999px;
-          background: rgba(255,255,255,.08);
-          border: 1px solid rgba(255,255,255,.1);
-          color: #cbd5e1;
-          font-size: 12px;
-          font-weight: 700;
-        }
-
-        .ap-hero-title {
-          margin: 20px 0 0;
-          max-width: 780px;
-          font-size: clamp(36px, 6vw, 62px);
-          line-height: 1.05;
-          letter-spacing: -2px;
-          font-weight: 900;
-        }
-
-        .ap-hero-title span {
-          display: block;
-          color: #cbd5e1;
-          margin-top: 8px;
-        }
-
-        .ap-hero-text {
-          max-width: 700px;
-          margin: 22px 0 0;
-          color: #cbd5e1;
-          font-size: 17px;
-          line-height: 1.7;
-        }
-
-        .ap-benefits {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 18px;
-          margin-top: 24px;
-          color: #cbd5e1;
-          font-size: 13px;
-          font-weight: 600;
-        }
-
-        .ap-benefit {
-          display: flex;
-          align-items: center;
-          gap: 7px;
-        }
-
-        /* Main Analyze Card */
-
-        .ap-card {
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 24px;
-          padding: 30px;
-          box-shadow: 0 4px 16px rgba(15,23,42,.05);
-        }
-
-        .ap-analyze-header {
-          display: flex;
-          align-items: flex-start;
-          gap: 15px;
-        }
-
-        .ap-main-icon {
-          width: 52px;
-          height: 52px;
-          flex-shrink: 0;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 15px;
-          background: #0f172a;
-          color: white;
-        }
-
-        .ap-heading {
-          margin: 0;
-          font-size: 25px;
-          font-weight: 800;
-        }
-
-        .ap-subheading {
-          margin: 5px 0 0;
-          color: #64748b;
-          font-size: 14px;
-          line-height: 1.6;
-        }
-
-        /* Input */
-
-        .ap-label-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 8px;
-        }
-
-        .ap-label {
-          font-size: 14px;
-          font-weight: 800;
-          color: #334155;
-        }
-
-        .ap-small {
-          color: #94a3b8;
-          font-size: 12px;
-        }
-
-        .ap-input-wrapper {
-          position: relative;
-        }
-
-        .ap-input-icon {
-          position: absolute;
-          left: 15px;
-          top: 50%;
-          transform: translateY(-50%);
-          color: #94a3b8;
-          pointer-events: none;
-        }
-
-        .ap-input {
-          width: 100%;
-          height: 52px;
-          border: 1px solid #cbd5e1;
-          border-radius: 13px;
-          padding: 0 15px 0 45px;
-          outline: none;
-          color: #0f172a;
-          background: white;
-          font-size: 14px;
-          transition: .2s;
-        }
-
-        .ap-input:focus {
-          border-color: #64748b;
-          box-shadow: 0 0 0 4px #f1f5f9;
-        }
-
-        .ap-example {
-          margin-top: 7px;
-          color: #94a3b8;
-          font-size: 11px;
-        }
-
-        /* Dataset */
-
-        .ap-dataset-section {
-          margin-top: 27px;
-        }
-
-        .ap-dataset-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 12px;
-        }
-
-        .ap-dataset {
-          width: 100%;
-          min-height: 100px;
-          text-align: left;
-          border: 1px solid #e2e8f0;
-          background: white;
-          color: #0f172a;
-          border-radius: 16px;
-          padding: 16px;
-          cursor: pointer;
-          transition: .2s;
-        }
-
-        .ap-dataset:hover {
-          border-color: #94a3b8;
-          transform: translateY(-1px);
-        }
-
-        .ap-dataset.selected {
-          background: #0f172a;
-          border-color: #0f172a;
-          color: white;
-          box-shadow: 0 6px 18px rgba(15,23,42,.15);
-        }
-
-        .ap-dataset-top {
-          display: flex;
-          justify-content: space-between;
-          gap: 8px;
-        }
-
-        .ap-dataset-name {
-          font-size: 14px;
-          font-weight: 800;
-        }
-
-        .ap-dataset-description {
-          margin-top: 8px;
-          color: #64748b;
-          font-size: 12px;
-          line-height: 1.5;
-        }
-
-        .ap-dataset.selected
-        .ap-dataset-description {
-          color: #cbd5e1;
-        }
-
-        /* Error */
-
-        .ap-error {
-          margin-top: 18px;
-          padding: 13px 15px;
-          border-radius: 12px;
-          background: #fef2f2;
-          border: 1px solid #fecaca;
-          color: #b91c1c;
-          font-size: 13px;
-          font-weight: 600;
-        }
-
-        /* Button */
-
-        .ap-analyze-button {
-          width: 100%;
-          height: 54px;
-          margin-top: 24px;
-          border: none;
-          border-radius: 13px;
-          background: #0f172a;
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 9px;
-          font-size: 14px;
-          font-weight: 800;
-          cursor: pointer;
-          transition: .2s;
-        }
-
-        .ap-analyze-button:hover {
-          background: #1e293b;
-        }
-
-        .ap-analyze-button:disabled {
-          opacity: .6;
-          cursor: not-allowed;
-        }
-
-        .ap-demo-note {
-          margin: 10px 0 0;
-          text-align: center;
-          color: #94a3b8;
-          font-size: 11px;
-        }
-
-        /* Features */
-
-        .ap-section {
-          margin-top: 35px;
-        }
-
-        .ap-section-label {
-          color: #94a3b8;
-          font-size: 11px;
-          font-weight: 800;
-          letter-spacing: 1px;
-          text-transform: uppercase;
-        }
-
-        .ap-section-title {
-          margin: 5px 0 0;
-          font-size: 25px;
-          font-weight: 800;
-        }
-
-        .ap-section-text {
-          margin: 7px 0 0;
-          color: #64748b;
-          font-size: 14px;
-        }
-
-        .ap-feature-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 14px;
-          margin-top: 18px;
-        }
-
-        .ap-feature {
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 18px;
-          padding: 20px;
-          box-shadow: 0 3px 12px rgba(15,23,42,.04);
-          transition: .2s;
-        }
-
-        .ap-feature:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 8px 20px rgba(15,23,42,.07);
-        }
-
-        .ap-feature-icon {
-          width: 42px;
-          height: 42px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 12px;
-          background: #f1f5f9;
-          margin-bottom: 15px;
-        }
-
-        .ap-feature-title {
-          margin: 0;
-          font-size: 14px;
-          font-weight: 800;
-        }
-
-        .ap-feature-text {
-          margin: 8px 0 0;
-          color: #64748b;
-          font-size: 12px;
-          line-height: 1.6;
-        }
-
-        /* How it works */
-
-        .ap-how {
-          margin-top: 30px;
-          background: white;
-          border: 1px solid #e2e8f0;
-          border-radius: 22px;
-          padding: 25px;
-        }
-
-        .ap-step-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 14px;
-          margin-top: 20px;
-        }
-
-        .ap-step {
-          border: 1px solid #e2e8f0;
-          border-radius: 16px;
-          padding: 18px;
-        }
-
-        .ap-step-number {
-          width: 34px;
-          height: 34px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          background: #0f172a;
-          color: white;
-          font-size: 11px;
-          font-weight: 800;
-        }
-
-        .ap-step-title {
-          margin: 13px 0 0;
-          font-size: 14px;
-          font-weight: 800;
-        }
-
-        .ap-step-text {
-          margin: 7px 0 0;
-          color: #64748b;
-          font-size: 12px;
-          line-height: 1.6;
-        }
-
-        /* Footer */
-
-        .ap-footer {
-          padding: 40px 0 20px;
-          text-align: center;
-        }
-
-        .ap-footer-title {
-          color: #475569;
-          font-size: 13px;
-          font-weight: 700;
-        }
-
-        .ap-footer-text {
-          margin-top: 4px;
-          color: #94a3b8;
-          font-size: 11px;
-        }
-
-        /* Loading */
-
-        .ap-spinner {
-          width: 19px;
-          height: 19px;
-          border: 2px solid white;
-          border-top-color: transparent;
-          border-radius: 50%;
-          animation: ap-spin .8s linear infinite;
-        }
-
-        @keyframes ap-spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-        /* Mobile */
-
-        @media (max-width: 800px) {
-          .ap-page {
-            padding: 16px 12px;
-          }
-
-          .ap-hero {
-            padding: 34px 22px;
-            border-radius: 22px;
-          }
-
-          .ap-hero-title {
-            font-size: 40px;
-            letter-spacing: -1.5px;
-          }
-
-          .ap-hero-text {
-            font-size: 15px;
-          }
-
-          .ap-dataset-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .ap-feature-grid {
-            grid-template-columns: repeat(2, 1fr);
-          }
-
-          .ap-step-grid {
-            grid-template-columns: 1fr;
-          }
-        }
-
-        @media (max-width: 520px) {
-          .ap-page {
-            padding: 12px 10px;
-          }
-
-          .ap-header {
-            margin-bottom: 16px;
-          }
-
-          .ap-brand {
-            font-size: 14px;
-          }
-
-          .ap-brand-icon {
-            width: 34px;
-            height: 34px;
-          }
-
-          .ap-demo {
-            font-size: 10px;
-            padding: 6px 9px;
-          }
-
-          .ap-hero {
-            padding: 30px 18px;
-            border-radius: 20px;
-          }
-
-          .ap-hero-title {
-            font-size: 34px;
-          }
-
-          .ap-benefits {
-            flex-direction: column;
-            gap: 9px;
-          }
-
-          .ap-card {
-            padding: 20px 16px;
-            border-radius: 20px;
-          }
-
-          .ap-heading {
-            font-size: 21px;
-          }
-
-          .ap-main-icon {
-            width: 45px;
-            height: 45px;
-          }
-
-          .ap-feature-grid {
-            grid-template-columns: 1fr;
-          }
-
-          .ap-section-title {
-            font-size: 21px;
-          }
-
-          .ap-how {
-            padding: 20px 16px;
-          }
-        }
-      `}</style>
-
-      <main className="ap-page">
-        <div className="ap-container">
-
-          {/* Header */}
-
-          <header className="ap-header">
-
-            <div className="ap-brand">
-              <div className="ap-brand-icon">
-                <Sparkles size={18} />
-              </div>
-
-              <span>
-                AudiencePulse AI
-              </span>
+            <div style={styles.iconBox}>
+              <Play size={25} />
             </div>
 
-            <div className="ap-demo">
-              🟡 DEMO MODE
+            <div>
+              <h2 style={styles.cardTitle}>
+                Analyze a YouTube Video
+              </h2>
+
+              <p style={styles.cardSubtitle}>
+                Enter a YouTube URL and analyze real audience
+                comments.
+              </p>
             </div>
 
-          </header>
+          </div>
 
-          {/* Hero */}
+          {/* URL */}
 
-          <section className="ap-hero">
+          <div style={styles.field}>
 
-            <div className="ap-hero-badge">
-              <Sparkles size={14} />
-              YouTube Audience Intelligence
-            </div>
+            <label style={styles.label}>
+              YouTube Video URL
+            </label>
 
-            <h1 className="ap-hero-title">
-              Understand your audience.
-              <span>
-                Create better content.
-              </span>
-            </h1>
+            <input
+              value={url}
+              onChange={(e) =>
+                setUrl(e.target.value)
+              }
+              placeholder="https://youtube.com/watch?v=..."
+              style={styles.input}
+              disabled={loading}
+            />
 
-            <p className="ap-hero-text">
-              Turn YouTube comments into audience intelligence
-              and discover exactly what your viewers want you
-              to create next.
-            </p>
+          </div>
 
-            <div className="ap-benefits">
+          {/* DATASET */}
 
-              <div className="ap-benefit">
-                <CheckCircle2 size={16} />
-                Comment intelligence
-              </div>
+          <div style={styles.field}>
 
-              <div className="ap-benefit">
-                <CheckCircle2 size={16} />
-                Audience demand
-              </div>
+            <label style={styles.label}>
+              Audience Profile
+            </label>
 
-              <div className="ap-benefit">
-                <CheckCircle2 size={16} />
-                Content ideas
-              </div>
+            <div style={styles.datasetGrid}>
+
+              {datasets.map((item) => {
+
+                const selected =
+                  dataset === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      setDataset(item.id)
+                    }
+                    disabled={loading}
+                    style={{
+                      ...styles.datasetCard,
+                      ...(selected
+                        ? styles.datasetSelected
+                        : {}),
+                    }}
+                  >
+
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: 15,
+                      }}
+                    >
+                      {item.name}
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 6,
+                        fontSize: 12,
+                        color: selected
+                          ? "#cbd5e1"
+                          : "#64748b",
+                      }}
+                    >
+                      {item.description}
+                    </div>
+
+                  </button>
+                );
+              })}
 
             </div>
 
-          </section>
+          </div>
 
-          {/* Analyze */}
+          {/* REAL YOUTUBE BUTTON */}
 
-          <section className="ap-card">
+          <button
+            onClick={analyzeVideo}
+            disabled={loading}
+            style={styles.primaryButton}
+          >
 
-            <div className="ap-analyze-header">
+            {loading ? (
+              <>
+                <span style={styles.spinner} />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Sparkles size={19} />
+                Analyze Real YouTube Comments
+              </>
+            )}
 
-              <div className="ap-main-icon">
-                <Youtube size={25} />
+          </button>
+
+          {/* DIVIDER */}
+
+          <div style={styles.divider}>
+            <span>OR</span>
+          </div>
+
+          {/* CSV SECTION */}
+
+          <div style={styles.csvBox}>
+
+            <div style={styles.csvHeader}>
+
+              <div style={styles.csvIcon}>
+                <FileText size={21} />
               </div>
 
               <div>
-                <h2 className="ap-heading">
-                  Analyze a YouTube Video
-                </h2>
+                <h3 style={styles.csvTitle}>
+                  Analyze Comments from CSV
+                </h3>
 
-                <p className="ap-subheading">
-                  Enter a YouTube URL and choose an audience
-                  dataset.
+                <p style={styles.csvSubtitle}>
+                  No YouTube API key required.
                 </p>
               </div>
 
             </div>
 
-            {/* URL */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,text/csv"
+              onChange={handleFileChange}
+              style={{ display: "none" }}
+            />
 
-            <div style={{ marginTop: 28 }}>
+            {!csvFile ? (
+              <button
+                type="button"
+                onClick={() =>
+                  fileInputRef.current?.click()
+                }
+                disabled={loading}
+                style={styles.uploadButton}
+              >
+                <Upload size={18} />
+                Choose CSV File
+              </button>
+            ) : (
+              <div style={styles.fileSelected}>
 
-              <div className="ap-label-row">
-                <label className="ap-label">
-                  YouTube Video URL
-                </label>
+                <div style={styles.fileInfo}>
+                  <FileText size={19} />
 
-                <span className="ap-small">
-                  Required
-                </span>
-              </div>
+                  <div>
+                    <strong>
+                      {csvFile.name}
+                    </strong>
 
-              <div className="ap-input-wrapper">
+                    <div style={styles.fileSize}>
+                      {(
+                        csvFile.size / 1024
+                      ).toFixed(1)} KB
+                    </div>
+                  </div>
+                </div>
 
-                <Youtube
-                  size={19}
-                  className="ap-input-icon"
-                />
+                <button
+                  type="button"
+                  onClick={removeCsv}
+                  style={styles.removeButton}
+                >
+                  <X size={18} />
+                </button>
 
-                <input
-                  className="ap-input"
-                  value={url}
-                  onChange={(e) => {
-                    setUrl(e.target.value);
-
-                    if (message) {
-                      setMessage("");
-                    }
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      analyzeVideo();
-                    }
-                  }}
-                  placeholder="https://youtube.com/watch?v=..."
-                />
-
-              </div>
-
-              <p className="ap-example">
-                Example:
-                {" "}
-                https://youtube.com/watch?v=ABC123
-              </p>
-
-            </div>
-
-            {/* Dataset */}
-
-            <div className="ap-dataset-section">
-
-              <div className="ap-label-row">
-                <label className="ap-label">
-                  Choose Audience Dataset
-                </label>
-
-                <span className="ap-small">
-                  Demo data
-                </span>
-              </div>
-
-              <div className="ap-dataset-grid">
-
-                {datasets.map((item) => {
-
-                  const selected =
-                    dataset === item.id;
-
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`ap-dataset ${
-                        selected ? "selected" : ""
-                      }`}
-                      onClick={() =>
-                        setDataset(item.id)
-                      }
-                    >
-
-                      <div className="ap-dataset-top">
-
-                        <span className="ap-dataset-name">
-                          {item.name}
-                        </span>
-
-                        {selected && (
-                          <CheckCircle2 size={17} />
-                        )}
-
-                      </div>
-
-                      <div className="ap-dataset-description">
-                        {item.description}
-                      </div>
-
-                    </button>
-                  );
-                })}
-
-              </div>
-
-            </div>
-
-            {/* Error */}
-
-            {message && (
-              <div className="ap-error">
-                {message}
               </div>
             )}
 
-            {/* Analyze Button */}
+            {csvFile && (
+              <button
+                onClick={analyzeCSV}
+                disabled={loading}
+                style={styles.csvAnalyzeButton}
+              >
 
-            <button
-              className="ap-analyze-button"
-              onClick={analyzeVideo}
-              disabled={loading}
-            >
+                {loading ? (
+                  <>
+                    <span style={styles.darkSpinner} />
+                    Analyzing CSV...
+                  </>
+                ) : (
+                  <>
+                    <BarChart3 size={18} />
+                    Analyze CSV Comments
+                  </>
+                )}
 
-              {loading ? (
-                <>
-                  <span className="ap-spinner" />
-                  Analyzing audience...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={19} />
-                  Analyze Comments
-                  <ArrowRight size={18} />
-                </>
-              )}
+              </button>
+            )}
 
-            </button>
-
-            <p className="ap-demo-note">
-              Demo mode • Real YouTube comments are not
-              being fetched yet.
+            <p style={styles.csvHint}>
+              CSV should contain a column named{" "}
+              <strong>comment</strong>.
             </p>
 
-          </section>
+          </div>
 
-          {/* Features */}
+          {/* ERROR */}
 
-          <section className="ap-section">
-
-            <div className="ap-section-label">
-              Audience intelligence
+          {message && (
+            <div style={styles.errorBox}>
+              {message}
             </div>
+          )}
 
-            <h2 className="ap-section-title">
-              What AudiencePulse analyzes
-            </h2>
+          <p style={styles.securityText}>
+            Your YouTube API key stays server-side and is
+            never exposed to the browser.
+          </p>
 
-            <p className="ap-section-text">
-              Turn thousands of audience comments into
-              simple, actionable insights.
-            </p>
+        </section>
 
-            <div className="ap-feature-grid">
+        {/* FEATURES */}
 
-              <Feature
-                icon={<MessageSquare size={21} />}
-                title="Comment Intelligence"
-                text="Understand what viewers are saying, asking and requesting."
-              />
+        <section style={styles.featuresSection}>
 
-              <Feature
-                icon={<Globe2 size={21} />}
-                title="Language & Location"
-                text="Discover language patterns and regional audience signals."
-              />
+          <h2 style={styles.featuresTitle}>
+            What AudiencePulse analyzes
+          </h2>
 
-              <Feature
-                icon={<BarChart3 size={21} />}
-                title="Demand Score"
-                text="Identify topics with strong repeated audience demand."
-              />
+          <div style={styles.featureGrid}>
 
-              <Feature
-                icon={<Sparkles size={21} />}
-                title="Next Video AI"
-                text="Generate content opportunities from audience demand."
-              />
+            <Feature
+              icon={<MessageSquare size={22} />}
+              title="Comment Intelligence"
+              text="Understand what viewers are actually saying."
+            />
 
-            </div>
+            <Feature
+              icon={<Globe2 size={22} />}
+              title="Language Signals"
+              text="Discover multilingual audience patterns."
+            />
 
-          </section>
+            <Feature
+              icon={<BarChart3 size={22} />}
+              title="Demand Score"
+              text="Identify topics with strong audience demand."
+            />
 
-          {/* How It Works */}
+            <Feature
+              icon={<Sparkles size={22} />}
+              title="Next Video AI"
+              text="Discover what your audience wants next."
+            />
 
-          <section className="ap-how">
+          </div>
 
-            <div className="ap-section-label">
-              Simple workflow
-            </div>
+        </section>
 
-            <h2 className="ap-section-title">
-              How it works
-            </h2>
+        {/* HOW IT WORKS */}
 
-            <p className="ap-section-text">
-              Three simple steps to turn comments into
-              content ideas.
-            </p>
+        <section style={styles.howSection}>
 
-            <div className="ap-step-grid">
+          <h2 style={styles.featuresTitle}>
+            How it works
+          </h2>
 
-              <Step
-                number="01"
-                title="Paste your video"
-                text="Enter the YouTube video URL you want to analyze."
-              />
+          <div style={styles.stepsGrid}>
 
-              <Step
-                number="02"
-                title="Analyze audience"
-                text="AudiencePulse identifies sentiment, languages, topics and questions."
-              />
+            <Step
+              number="1"
+              title="Connect"
+              text="Paste a YouTube URL or upload comments."
+            />
 
-              <Step
-                number="03"
-                title="Create next"
-                text="Use audience demand to decide what content to create next."
-              />
+            <Step
+              number="2"
+              title="Analyze"
+              text="AudiencePulse processes the comments."
+            />
 
-            </div>
+            <Step
+              number="3"
+              title="Discover"
+              text="Find sentiment, questions, topics and demand."
+            />
 
-          </section>
+            <Step
+              number="4"
+              title="Create"
+              text="Turn audience demand into your next content."
+            />
 
-          {/* Footer */}
+          </div>
 
-          <footer className="ap-footer">
+        </section>
 
-            <div className="ap-footer-title">
-              AudiencePulse AI
-            </div>
+        <footer style={styles.footer}>
+          AudiencePulse AI • POC
+        </footer>
 
-            <div className="ap-footer-text">
-              POC Demo • Audience intelligence for creators
-            </div>
-
-          </footer>
-
-        </div>
-      </main>
-    </>
+      </div>
+    </main>
   );
 }
 
-/* Feature */
+/* ----------------------------------------
+   FEATURE
+---------------------------------------- */
 
 function Feature({
   icon,
@@ -1032,17 +558,17 @@ function Feature({
   text: string;
 }) {
   return (
-    <div className="ap-feature">
+    <div style={styles.featureCard}>
 
-      <div className="ap-feature-icon">
+      <div style={styles.featureIcon}>
         {icon}
       </div>
 
-      <h3 className="ap-feature-title">
+      <h3 style={styles.featureTitle}>
         {title}
       </h3>
 
-      <p className="ap-feature-text">
+      <p style={styles.featureText}>
         {text}
       </p>
 
@@ -1050,7 +576,9 @@ function Feature({
   );
 }
 
-/* Step */
+/* ----------------------------------------
+   STEP
+---------------------------------------- */
 
 function Step({
   number,
@@ -1062,20 +590,402 @@ function Step({
   text: string;
 }) {
   return (
-    <div className="ap-step">
+    <div style={styles.stepCard}>
 
-      <div className="ap-step-number">
+      <div style={styles.stepNumber}>
         {number}
       </div>
 
-      <h3 className="ap-step-title">
+      <h3 style={styles.stepTitle}>
         {title}
       </h3>
 
-      <p className="ap-step-text">
+      <p style={styles.stepText}>
         {text}
       </p>
 
     </div>
   );
 }
+
+/* ----------------------------------------
+   STYLES
+---------------------------------------- */
+
+const styles: Record<
+  string,
+  React.CSSProperties
+> = {
+
+  page: {
+    minHeight: "100vh",
+    background: "#f8fafc",
+    color: "#0f172a",
+    padding: "32px 16px 60px",
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+  },
+
+  container: {
+    width: "100%",
+    maxWidth: 1120,
+    margin: "0 auto",
+  },
+
+  header: {
+    textAlign: "center",
+    marginBottom: 34,
+  },
+
+  badge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 7,
+    background: "#ede9fe",
+    color: "#6d28d9",
+    borderRadius: 999,
+    padding: "8px 14px",
+    fontSize: 12,
+    fontWeight: 800,
+  },
+
+  heroTitle: {
+    fontSize: "clamp(38px, 8vw, 64px)",
+    lineHeight: 1.05,
+    margin: "18px 0 0",
+    fontWeight: 900,
+    letterSpacing: "-2px",
+  },
+
+  heroText: {
+    maxWidth: 700,
+    margin: "16px auto 0",
+    color: "#64748b",
+    fontSize: "clamp(15px, 2vw, 18px)",
+    lineHeight: 1.7,
+  },
+
+  mainCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 26,
+    padding: "clamp(20px, 4vw, 38px)",
+    boxShadow:
+      "0 12px 40px rgba(15,23,42,.07)",
+  },
+
+  cardHeader: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 14,
+  },
+
+  iconBox: {
+    width: 50,
+    height: 50,
+    minWidth: 50,
+    borderRadius: 15,
+    background: "#0f172a",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  cardTitle: {
+    margin: 0,
+    fontSize: "clamp(20px, 4vw, 27px)",
+    fontWeight: 850,
+  },
+
+  cardSubtitle: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: 14,
+    lineHeight: 1.5,
+  },
+
+  field: {
+    marginTop: 26,
+  },
+
+  label: {
+    display: "block",
+    fontSize: 13,
+    fontWeight: 800,
+    color: "#334155",
+    marginBottom: 9,
+  },
+
+  input: {
+    width: "100%",
+    boxSizing: "border-box",
+    border: "1px solid #cbd5e1",
+    borderRadius: 13,
+    padding: "14px 15px",
+    fontSize: 15,
+    color: "#0f172a",
+    outline: "none",
+    background: "#ffffff",
+  },
+
+  datasetGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(190px, 1fr))",
+    gap: 10,
+  },
+
+  datasetCard: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 15,
+    background: "#ffffff",
+    padding: 15,
+    textAlign: "left",
+    cursor: "pointer",
+    minHeight: 82,
+  },
+
+  datasetSelected: {
+    background: "#0f172a",
+    borderColor: "#0f172a",
+    color: "#ffffff",
+  },
+
+  primaryButton: {
+    width: "100%",
+    marginTop: 25,
+    border: "none",
+    borderRadius: 14,
+    background: "#0f172a",
+    color: "#ffffff",
+    padding: "15px 18px",
+    fontSize: 15,
+    fontWeight: 800,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+  },
+
+  spinner: {
+    width: 18,
+    height: 18,
+    borderRadius: "50%",
+    border: "2px solid rgba(255,255,255,.35)",
+    borderTopColor: "#ffffff",
+    display: "inline-block",
+    animation: "spin 1s linear infinite",
+  },
+
+  divider: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    margin: "26px 0",
+    color: "#94a3b8",
+    fontSize: 11,
+    fontWeight: 800,
+  },
+
+  csvBox: {
+    border: "1px dashed #cbd5e1",
+    background: "#f8fafc",
+    borderRadius: 18,
+    padding: 18,
+  },
+
+  csvHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 15,
+  },
+
+  csvIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    background: "#e2e8f0",
+    color: "#334155",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  csvTitle: {
+    margin: 0,
+    fontSize: 15,
+    fontWeight: 800,
+  },
+
+  csvSubtitle: {
+    margin: "4px 0 0",
+    color: "#64748b",
+    fontSize: 12,
+  },
+
+  uploadButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#0f172a",
+    borderRadius: 12,
+    padding: "11px 15px",
+    fontWeight: 800,
+    fontSize: 13,
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  fileSelected: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 13,
+    padding: 12,
+  },
+
+  fileInfo: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    minWidth: 0,
+    color: "#334155",
+  },
+
+  fileSize: {
+    color: "#94a3b8",
+    fontSize: 11,
+    marginTop: 3,
+  },
+
+  removeButton: {
+    border: "none",
+    background: "#f1f5f9",
+    color: "#64748b",
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    cursor: "pointer",
+  },
+
+  csvAnalyzeButton: {
+    width: "100%",
+    marginTop: 12,
+    border: "none",
+    borderRadius: 12,
+    background: "#334155",
+    color: "#ffffff",
+    padding: "13px",
+    fontWeight: 800,
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  darkSpinner: {
+    width: 17,
+    height: 17,
+    borderRadius: "50%",
+    border: "2px solid rgba(255,255,255,.35)",
+    borderTopColor: "#ffffff",
+    display: "inline-block",
+  },
+
+  csvHint: {
+    color: "#94a3b8",
+    fontSize: 11,
+    margin: "12px 0 0",
+  },
+
+  errorBox: {
+    marginTop: 18,
+    background: "#fef2f2",
+    border: "1px solid #fecaca",
+    color: "#b91c1c",
+    borderRadius: 12,
+    padding: 13,
+    fontSize: 13,
+    fontWeight: 600,
+  },
+
+  securityText: {
+    textAlign: "center",
+    color: "#94a3b8",
+    fontSize: 11,
+    margin: "17px 0 0",
+  },
+
+  featuresSection: {
+    marginTop: 40,
+  },
+
+  featuresTitle: {
+    fontSize: 22,
+    fontWeight: 850,
+    margin: "0 0 16px",
+  },
+
+  featureGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 14,
+  },
+
+  featureCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 18,
+    padding: 20,
+  },
+
+  featureIcon: {
+    color: "#0f172a",
+    marginBottom: 12,
+  },
+
+  featureTitle: {
+    margin: 0,
+    fontSize: 15,
+    fontWeight: 800,
+  },
+
+  featureText: {
+    margin: "7px 0 0",
+    color: "#64748b",
+    fontSize: 13,
+    lineHeight: 1.6,
+  },
+
+  howSection: {
+    marginTop: 40,
+  },
+
+  stepsGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: 14,
+  },
+
+  stepCard: {
+    background: "#0f172a",
+    color: "#ffffff",
+    borderRadius: 18,
+    padding: 20,
+  },
+
+  stepNumber: {
+    width:
