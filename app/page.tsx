@@ -595,3 +595,38 @@ function Step({
     </div>
   );
 }
+
+  stepNumber: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    background: "#ffffff",
+    color: "#0f172a",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 900,
+    fontSize: 14,
+    marginBottom: 14,
+  },
+
+  stepTitle: {
+    margin: 0,
+    fontSize: 16,
+    fontWeight: 800,
+  },
+
+  stepText: {
+    margin: "7px 0 0",
+    color: "#cbd5e1",
+    fontSize: 13,
+    lineHeight: 1.6,
+  },
+
+  footer: {
+    textAlign: "center",
+    marginTop: 45,
+    color: "#94a3b8",
+    fontSize: 11,
+  },
+};
