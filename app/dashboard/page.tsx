@@ -552,28 +552,17 @@ function buildDashboardData(
     tamilHits + hindiHits + englishHits;
 
   const languages: [string, number][] =
-    languageTotal > 0
-      ? [
-          [
-            "English",
-            Math.round(
-              (englishHits / languageTotal) * 100
-            ),
-          ],
-          [
-            "Tamil",
-            Math.round(
-              (tamilHits / languageTotal) * 100
-            ),
-          ],
-          [
-            "Hindi",
-            Math.round(
-              (hindiHits / languageTotal) * 100
-            ),
-          ],
-        ].filter(([, value]) => value > 0)
-      : [["Unknown", 100]];
+  languageTotal > 0
+    ? [
+        ["Tamil", Math.round((tamilHits / languageTotal) * 100)],
+        ["English", Math.round((englishHits / languageTotal) * 100)],
+        ["Hindi", Math.round((hindiHits / languageTotal) * 100)],
+      ]
+    : [
+        ["Tamil", 0],
+        ["English", 0],
+        ["Hindi", 0],
+      ];
 
   const questionComments =
     comments.filter((item) =>
