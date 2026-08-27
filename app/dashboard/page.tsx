@@ -1,246 +1,1515 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, BarChart3, CheckCircle2, Globe2, Languages, MessageCircleQuestion, Sparkles, TrendingUp, Users } from "lucide-react";
 
-type CommentItem = { text: string; author?: string };
-type ScorePair = [string, number];
-type AnalysisData = {
-  source?: string;
-  video?: { id?: string; title?: string; channelTitle?: string; thumbnail?: string };
-  commentsAnalyzed?: number;
-  comments?: CommentItem[];
+type CommentItem = {
+  text?: string;
+  comment?: string;
+  author?: string;
+  authorName?: string;
 };
+
+type Recommendation = {
+  number: number;
+  title: string;
+  reason: string;
+  score: number;
+};
+
 type DashboardData = {
-  comments: number; positive: number; neutral: number; negative: number;
-  languages: ScorePair[]; countries: ScorePair[]; topics: ScorePair[]; questions: ScorePair[];
-  recommendations: { title: string; score: number; reason: string }[];
+  comments: CommentItem[];
+  commentsAnalyzed: number;
+  sentimentScore: number;
+  sentiment: string;
+  topics: [string, number][];
+  questions: [string, number][];
+  languages: [string, number][];
+  recommendations: Recommendation[];
 };
+
+function FeatureCard({
+  title,
+  value,
+  description,
+}: {
+  title: string;
+  value: string;
+  description: string;
+}) {
+  return (
+    <div style={styles.statCard}>
+      <div style={styles.statTitle}>{title}</div>
+      <div style={styles.statValue}>{value}</div>
+      <div style={styles.statDescription}>
+        {description}
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle: string;
+}) {
+  return (
+    <div style={styles.sectionHeader}>
+      <h2 style={styles.sectionTitle}>{title}</h2>
+      <p style={styles.sectionSubtitle}>{subtitle}</p>
+    </div>
+  );
+}
+
+function buildDashboardData(
+  analysis: any
+): DashboardData {
+  const comments: CommentItem[] =
+    Array.isArray(analysis?.comments)
+      ? analysis.comments
+      : [];
+
+  const commentsAnalyzed =
+    Number(
+      analysis?.commentsAnalyzed
+    ) || comments.length;
+
+  const rawScore =
+    Number(
+      analysis?.sentimentScore
+    );
+
+  const sentimentScore = Number.isFinite(rawScore)
+    ? Math.max(0, Math.min(100, rawScore))
+    : 50;
+
+  const sentiment =
+    typeof analysis?.sentiment === "string"
+      ? analysis.sentiment
+      : sentimentScore >= 60
+        ? "Positive"
+        : sentimentScore <= 40
+          ? "Negative"
+          : "Neutral";
+
+  const topics: [string, number][] =
+    Array.isArray(analysis?.topics)
+      ? analysis.topics
+          .filter(
+            (item: any) =>
+              Array.isArray(item) &&
+              item.length >= 2
+          )
+          .map(
+            (item: any) =>
+              [
+                String(item[0]),
+                Number(item[1]) || 0,
+              ] as [string, number]
+          )
+          .slice(0, 12)
+      : [];
+
+  const questions: [string, number][] =
+    Array.isArray(analysis?.questions)
+      ? analysis.questions
+          .filter(
+            (item: any) =>
+              Array.isArray(item) &&
+              item.length >= 2
+          )
+          .map(
+            (item: any) =>
+              [
+                String(item[0]),
+                Number(item[1]) || 0,
+              ] as [string, number]
+          )
+          .slice(0, 12)
+      : [];
+
+  const languages: [string, number][] =
+    Array.isArray(analysis?.languages)
+      ? analysis.languages
+          .filter(
+            (item: any) =>
+              Array.isArray(item) &&
+              item.length >= 2
+          )
+          .map(
+            (item: any) =>
+              [
+                String(item[0]),
+                Number(item[1]) || 0,
+              ] as [string, number]
+          )
+          .slice(0, 10)
+      : [];
+
+  const recommendations: Recommendation[] =
+    Array.isArray(analysis?.recommendations)
+      ? analysis.recommendations
+          .map((item: any, index: number) => ({
+            number:
+              Number(item?.number) || index + 1,
+            title:
+              String(
+                item?.title ||
+                  item?.topic ||
+                  "New content opportunity"
+              ),
+            reason:
+              String(
+                item?.reason ||
+                  "Audience interest detected from comments."
+              ),
+            score:
+              Math.max(
+                0,
+                Math.min(
+                  100,
+                  Number(item?.score) || 0
+                )
+              ),
+          }))
+          .slice(0, 6)
+      : [];
+
+  return {
+    comments,
+    commentsAnalyzed,
+    sentimentScore,
+    sentiment,
+    topics,
+    questions,
+    languages,
+    recommendations,
+  };
+}
 
 export default function DashboardPage() {
-  const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
+  const [analysis, setAnalysis] =
+    useState<any>(null);
+
   useEffect(() => {
-    const stored = sessionStorage.getItem("audiencepulse-analysis");
-    if (!stored) return;
-    try { setAnalysis(JSON.parse(stored) as AnalysisData); } catch { setAnalysis(null); }
+    const stored =
+      sessionStorage.getItem(
+        "audiencepulse-analysis"
+      );
+
+    if (!stored) {
+      return;
+    }
+
+    try {
+      setAnalysis(JSON.parse(stored));
+    } catch {
+      setAnalysis(null);
+    }
   }, []);
 
-  const data = buildDashboardData(analysis);
+  if (!analysis) {
+    return (
+      <main style={styles.page}>
+        <div style={styles.emptyPage}>
+          <h1 style={styles.heroTitle}>
+            AudiencePulse AI
+          </h1>
+
+          <p style={styles.sectionSubtitle}>
+            No analysis data found.
+          </p>
+
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = "/";
+            }}
+            style={styles.primaryButton}
+          >
+            Go Back
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  const data =
+    buildDashboardData(analysis);
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-        <button type="button" onClick={() => { window.location.href = "/"; }} style={styles.backButton}>
-          <ArrowLeft size={17} /> Analyze another video
-        </button>
 
         <header style={styles.header}>
-          <div>
-            <div style={styles.badge}><Sparkles size={13} /> REAL ANALYSIS</div>
-            <h1 style={styles.title}>Audience Intelligence</h1>
-            <p style={styles.subtitle}>{analysis?.video?.title || "YouTube audience analysis"}</p>
+
+          <button
+            type="button"
+            onClick={() => {
+              window.location.href = "/";
+            }}
+            style={styles.backButton}
+          >
+            ← New Analysis
+          </button>
+
+          <div style={styles.badge}>
+            ✨ Audience Intelligence
           </div>
-          <div style={styles.sourceBox}>Source: <strong>{analysis?.source === "csv" ? "CSV" : "YouTube"}</strong></div>
+
+          <h1 style={styles.heroTitle}>
+            AudiencePulse AI
+          </h1>
+
+          <p style={styles.heroText}>
+            Your audience intelligence dashboard
+          </p>
+
         </header>
 
         {analysis?.video && (
           <section style={styles.videoCard}>
-            {analysis.video.thumbnail && <img src={analysis.video.thumbnail} alt="YouTube thumbnail" style={styles.thumbnail} />}
+
+            {analysis.video.thumbnail && (
+              <img
+                src={analysis.video.thumbnail}
+                alt={
+                  analysis.video.title ||
+                  "YouTube video"
+                }
+                style={styles.thumbnail}
+              />
+            )}
+
             <div style={styles.videoInfo}>
-              <h2 style={styles.videoTitle}>{analysis.video.title || "YouTube Video"}</h2>
-              {analysis.video.channelTitle && <p style={styles.videoChannel}>{analysis.video.channelTitle}</p>}
-              {analysis.video.id && <p style={styles.videoId}>Video ID: {analysis.video.id}</p>}
+
+              <div style={styles.videoLabel}>
+                YOUTUBE VIDEO
+              </div>
+
+              <h2 style={styles.videoTitle}>
+                {analysis.video.title ||
+                  "YouTube Video"}
+              </h2>
+
+              {analysis.video.channelTitle && (
+                <p style={styles.videoChannel}>
+                  {analysis.video.channelTitle}
+                </p>
+              )}
+
             </div>
+
           </section>
         )}
 
-        <section style={styles.metricsGrid}>
-          <Metric icon={<Users size={22} />} title="Comments Analyzed" value={data.comments.toLocaleString()} />
-          <Metric icon={<Languages size={22} />} title="Languages" value={String(data.languages.length)} />
-          <Metric icon={<Globe2 size={22} />} title="Countries" value={String(data.countries.length)} />
-          <Metric icon={<MessageCircleQuestion size={22} />} title="Questions" value={String(data.questions.length)} />
+        <section style={styles.statsGrid}>
+
+          <FeatureCard
+            title="COMMENTS ANALYZED"
+            value={String(
+              data.commentsAnalyzed
+            )}
+            description="Audience comments processed"
+          />
+
+          <FeatureCard
+            title="SENTIMENT"
+            value={`${data.sentimentScore}%`}
+            description={data.sentiment}
+          />
+
+          <FeatureCard
+            title="TOP TOPICS"
+            value={String(
+              data.topics.length
+            )}
+            description="Audience discussion topics"
+          />
+
+          <FeatureCard
+            title="QUESTIONS"
+            value={String(
+              data.questions.length
+            )}
+            description="Questions detected"
+          />
+
         </section>
 
-        <section style={styles.card}>
-          <SectionHeader icon={<BarChart3 size={22} />} title="Sentiment Analysis" subtitle="Overall audience reaction" />
-          <div style={styles.threeGrid}>
-            <Sentiment label="Positive" value={data.positive} symbol="😊" />
-            <Sentiment label="Neutral" value={data.neutral} symbol="😐" />
-            <Sentiment label="Negative" value={data.negative} symbol="😕" />
-          </div>
-        </section>
+        <section style={styles.section}>
 
-        <section style={styles.twoGrid}>
-          <InsightCard title="Language Intelligence" icon={<Languages size={21} />}>
-            {data.languages.map(([name, value]) => <ProgressRow key={name} name={name} value={value} />)}
-          </InsightCard>
-          <InsightCard title="Location Signals" icon={<Globe2 size={21} />}>
-            {data.countries.map(([name, value]) => <ProgressRow key={name} name={name} value={value} />)}
-            <p style={styles.note}>Location values are estimated signals and may not represent exact viewer locations.</p>
-          </InsightCard>
-        </section>
+          <SectionTitle
+            title="Audience Sentiment"
+            subtitle="Overall emotional signal from the comments"
+          />
 
-        <section style={styles.card}>
-          <SectionHeader icon={<TrendingUp size={21} />} title="Trending Topics & Demand" subtitle="Topics your audience appears to care about" />
-          <div style={styles.topicGrid}>
-            {data.topics.map(([topic, score], index) => (
-              <div key={topic} style={styles.topicItem}>
-                <div style={styles.topicLeft}><span style={styles.rank}>{index + 1}</span><span style={styles.topicName}>{topic}</span></div>
-                <span style={styles.score}>{score}/100</span>
-              </div>
-            ))}
-          </div>
-        </section>
+          <div style={styles.sentimentCard}>
 
-        <section style={styles.card}>
-          <SectionHeader icon={<MessageCircleQuestion size={21} />} title="Audience Question Miner" subtitle="Questions detected from audience comments" />
-          {data.questions.map(([question, count]) => (
-            <div key={question} style={styles.questionItem}>
-              <div style={styles.questionContent}>
-                <p style={styles.questionText}>{question}</p>
-                <p style={styles.questionCount}>Detected {count.toLocaleString()} times</p>
-              </div>
-              <span style={styles.opportunity}>Opportunity</span>
+            <div style={styles.sentimentScore}>
+              {data.sentimentScore}%
             </div>
-          ))}
-        </section>
 
-        <section style={styles.darkCard}>
-          <SectionHeader icon={<Sparkles size={23} />} title="What Should You Create Next?" subtitle="Content opportunities based on audience demand" dark />
-          <div style={styles.recommendGrid}>
-            {data.recommendations.map((item, index) => (
-              <div key={item.title} style={styles.recommendCard}>
-                <div style={styles.recommendTop}><span style={styles.number}>#{index + 1}</span><span style={styles.recommendScore}>{item.score}/100</span></div>
-                <h3 style={styles.recommendTitle}>{item.title}</h3>
-                <p style={styles.recommendReason}>{item.reason}</p>
-                <button type="button" style={styles.planButton}>Create Content Plan</button>
+            <div style={styles.sentimentContent}>
+
+              <div style={styles.sentimentLabel}>
+                {data.sentiment}
               </div>
-            ))}
-          </div>
-        </section>
 
-        <section style={styles.card}>
-          <SectionHeader icon={<CheckCircle2 size={22} />} title="AI Action Plan" subtitle="Recommended next steps" />
-          <div style={styles.threeGrid}>
-            <Action number="1" text={`Create content around "${data.topics[0][0]}".`} />
-            <Action number="2" text={`Answer this audience question: "${data.questions[0][0]}"`} />
-            <Action number="3" text={`Prioritize the topic with a ${data.topics[0][1]}/100 demand score.`} />
-          </div>
-        </section>
+              <div
+                style={
+                  styles.progressBackground
+                }
+              >
+                <div
+                  style={{
+                    ...styles.progressBar,
+                    width:
+                      `${data.sentimentScore}%`,
+                  }}
+                />
+              </div>
 
-        <section style={styles.commentsCard}>
-          <SectionHeader icon={<MessageCircleQuestion size={21} />} title="Sample Audience Comments" subtitle="Comments received from the analysis" />
-          {analysis?.comments && analysis.comments.length > 0 ? analysis.comments.slice(0, 10).map((comment, index) => (
-            <div key={`${comment.text}-${index}`} style={styles.commentItem}>
-              <div style={styles.commentAvatar}>{(comment.author || "U").charAt(0).toUpperCase()}</div>
-              <div><strong style={styles.commentAuthor}>{comment.author || "YouTube User"}</strong><p style={styles.commentText}>{comment.text}</p></div>
+              <p style={styles.sentimentText}>
+                Based on audience comments
+                processed by AudiencePulse AI.
+              </p>
+
             </div>
-          )) : <p style={styles.emptyText}>No comment details available.</p>}
+
+          </div>
+
         </section>
 
-        <footer style={styles.footer}>AudiencePulse AI • Real audience analysis</footer>
+        <section style={styles.section}>
+
+          <SectionTitle
+            title="Top Audience Topics"
+            subtitle="Topics appearing most frequently in comments"
+          />
+
+          {data.topics.length > 0 ? (
+            <div style={styles.topicGrid}>
+
+              {data.topics.map(
+                ([topic, count], index) => (
+                  <div
+                    key={`${topic}-${index}`}
+                    style={styles.topicItem}
+                  >
+
+                    <div style={styles.topicLeft}>
+
+                      <div style={styles.rank}>
+                        #{index + 1}
+                      </div>
+
+                      <div style={styles.topicName}>
+                        {topic}
+                      </div>
+
+                    </div>
+
+                    <div style={styles.score}>
+                      {count} mentions
+                    </div>
+
+                  </div>
+                )
+              )}
+
+            </div>
+          ) : (
+            <p style={styles.emptyText}>
+              No topics detected yet.
+            </p>
+          )}
+
+        </section>
+        <section style={styles.section}>
+
+          <SectionTitle
+            title="Audience Questions"
+            subtitle="Questions your viewers are asking"
+          />
+
+          {data.questions.length > 0 ? (
+            <div>
+
+              {data.questions.map(
+                ([question, count], index) => (
+                  <div
+                    key={`${question}-${index}`}
+                    style={styles.questionItem}
+                  >
+
+                    <div style={styles.questionContent}>
+
+                      <p style={styles.questionText}>
+                        {question}
+                      </p>
+
+                      <p style={styles.questionCount}>
+                        {count} mention(s)
+                      </p>
+
+                    </div>
+
+                    <div style={styles.opportunity}>
+                      Content Opportunity
+                    </div>
+
+                  </div>
+                )
+              )}
+
+            </div>
+          ) : (
+            <p style={styles.emptyText}>
+              No questions detected.
+            </p>
+          )}
+
+        </section>
+
+        <section style={styles.section}>
+
+          <SectionTitle
+            title="Language Signals"
+            subtitle="Languages detected in your audience"
+          />
+
+          {data.languages.length > 0 ? (
+            <div style={styles.languageGrid}>
+
+              {data.languages.map(
+                ([language, count]) => (
+                  <div
+                    key={language}
+                    style={styles.languageCard}
+                  >
+
+                    <div style={styles.languageName}>
+                      {language}
+                    </div>
+
+                    <div style={styles.languageCount}>
+                      {count} comments
+                    </div>
+
+                  </div>
+                )
+              )}
+
+            </div>
+          ) : (
+            <p style={styles.emptyText}>
+              No language data available.
+            </p>
+          )}
+
+        </section>
+
+        <section style={styles.darkSection}>
+
+          <SectionTitle
+            title="Next Video Opportunities"
+            subtitle="Content ideas generated from audience demand"
+          />
+
+          {data.recommendations.length > 0 ? (
+            <div style={styles.recommendGrid}>
+
+              {data.recommendations.map(
+                (item) => (
+                  <div
+                    key={`${item.number}-${item.title}`}
+                    style={styles.recommendCard}
+                  >
+
+                    <div style={styles.recommendTop}>
+
+                      <span style={styles.number}>
+                        #{item.number}
+                      </span>
+
+                      <span
+                        style={
+                          styles.recommendScore
+                        }
+                      >
+                        {item.score}% demand
+                      </span>
+
+                    </div>
+
+                    <h3
+                      style={
+                        styles.recommendTitle
+                      }
+                    >
+                      {item.title}
+                    </h3>
+
+                    <p
+                      style={
+                        styles.recommendReason
+                      }
+                    >
+                      {item.reason}
+                    </p>
+
+                    <button
+                      type="button"
+                      style={styles.planButton}
+                      onClick={() => {
+                        alert(
+                          `Content idea: ${item.title}`
+                        );
+                      }}
+                    >
+                      Plan This Video
+                    </button>
+
+                  </div>
+                )
+              )}
+
+            </div>
+          ) : (
+            <p style={styles.darkEmptyText}>
+              Not enough audience data to generate
+              recommendations.
+            </p>
+          )}
+
+        </section>
+
+        <section style={styles.section}>
+
+          <SectionTitle
+            title="Audience Action Plan"
+            subtitle="Simple next steps based on the analysis"
+          />
+
+          <div style={styles.actionGrid}>
+
+            <div style={styles.actionCard}>
+              <div style={styles.actionNumber}>
+                1
+              </div>
+
+              <p style={styles.actionText}>
+                Focus your next video on the highest
+                demand topic.
+              </p>
+            </div>
+
+            <div style={styles.actionCard}>
+              <div style={styles.actionNumber}>
+                2
+              </div>
+
+              <p style={styles.actionText}>
+                Answer repeated audience questions
+                directly in your content.
+              </p>
+            </div>
+
+            <div style={styles.actionCard}>
+              <div style={styles.actionNumber}>
+                3
+              </div>
+
+              <p style={styles.actionText}>
+                Use audience language signals to
+                improve titles and descriptions.
+              </p>
+            </div>
+
+          </div>
+
+        </section>
+
+        <section style={styles.section}>
+
+          <SectionTitle
+            title="Sample Audience Comments"
+            subtitle="Comments used for this analysis"
+          />
+
+          {data.comments.length > 0 ? (
+            <div>
+
+              {data.comments
+                .slice(0, 20)
+                .map(
+                  (comment, index) => {
+
+                    const text =
+                      comment?.text ||
+                      comment?.comment ||
+                      "";
+
+                    const author =
+                      comment?.author ||
+                      comment?.authorName ||
+                      "Viewer";
+
+                    return (
+                      <div
+                        key={index}
+                        style={styles.commentItem}
+                      >
+
+                        <div
+                          style={
+                            styles.commentAvatar
+                          }
+                        >
+                          {String(author)
+                            .charAt(0)
+                            .toUpperCase()}
+                        </div>
+
+                        <div>
+
+                          <strong
+                            style={
+                              styles.commentAuthor
+                            }
+                          >
+                            {author}
+                          </strong>
+
+                          <p
+                            style={
+                              styles.commentText
+                            }
+                          >
+                            {text}
+                          </p>
+
+                        </div>
+
+                      </div>
+                    );
+                  }
+                )}
+
+            </div>
+          ) : (
+            <p style={styles.emptyText}>
+              No comments available.
+            </p>
+          )}
+
+        </section>
+
+        <footer style={styles.footer}>
+          AudiencePulse AI • POC
+        </footer>
+
       </div>
     </main>
   );
 }
 
-function buildDashboardData(analysis: AnalysisData | null): DashboardData {
-  const comments = analysis?.comments ?? [];
-  const total = analysis?.commentsAnalyzed ?? comments.length;
-  if (total === 0) return {
-    comments: 0, positive: 0, neutral: 0, negative: 0,
-    languages: [["Unknown", 100]], countries: [["Unknown", 100]],
-    topics: [["Audience feedback", 50], ["Viewer questions", 40], ["Content requests", 30]],
-    questions: [["What should the creator cover next?", 1], ["Can you explain this topic?", 1], ["Can you make another video?", 1]],
-    recommendations: [
-      { title: "Create a follow-up video", score: 75, reason: "Audience feedback can be used to create a relevant follow-up." },
-      { title: "Answer viewer questions", score: 70, reason: "Repeated questions can become dedicated content." },
-      { title: "Create a detailed guide", score: 65, reason: "Detailed explanations can address audience needs." },
-    ],
-  };
+const styles: Record<
+  string,
+  React.CSSProperties
+> = {
 
-  const text = comments.map((item) => item.text || "").join(" ").toLowerCase();
-  const positiveHits = countWords(text, ["love", "great", "amazing", "awesome", "good", "best", "helpful", "super", "நல்ல", "அருமை", "சூப்பர்", "மிகவும்"]);
-  const negativeHits = countWords(text, ["bad", "hate", "worst", "wrong", "poor", "disappointed", "not good", "terrible", "மோசம்", "தவறு"]);
-  const neutralBase = Math.max(total - positiveHits - negativeHits, 0);
-  const sentimentTotal = Math.max(positiveHits + negativeHits + neutralBase, 1);
-  const positive = Math.round((positiveHits / sentimentTotal) * 100);
-  const negative = Math.round((negativeHits / sentimentTotal) * 100);
-  const neutral = Math.max(100 - positive - negative, 0);
+  page: {
+    minHeight: "100vh",
+    background: "#f8fafc",
+    color: "#0f172a",
+    padding: "28px 16px 60px",
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+  },
 
-  const tamilHits = countWords(text, ["எப்படி", "என்ன", "வேண்டும்", "நல்ல", "சென்னை", "தமிழ்", "பயணம்", "சாப்பாடு"]);
-  const hindiHits = countWords(text, ["कैसे", "क्या", "है", "बहुत", "अच्छा", "भारत"]);
-  const englishHits = countWords(text, ["the", "this", "that", "what", "how", "is", "can", "please"]);
-  const languageTotal = tamilHits + hindiHits + englishHits;
-  const languages: ScorePair[] = languageTotal > 0 ? [
-    ["Tamil", Math.round((tamilHits / languageTotal) * 100)],
-    ["English", Math.round((englishHits / languageTotal) * 100)],
-    ["Hindi", Math.round((hindiHits / languageTotal) * 100)],
-  ] : [["Tamil", 0], ["English", 0], ["Hindi", 0]];
+  container: {
+    width: "100%",
+    maxWidth: 1120,
+    margin: "0 auto",
+  },
 
-  const questionComments = comments.filter((item) => (item.text || "").includes("?"));
-  const questions: ScorePair[] = questionComments.length > 0
-    ? questionComments.slice(0, 5).map((item): ScorePair => [item.text, 1])
-    : [["What should the creator explain next?", 1], ["Can you make a detailed follow-up?", 1], ["Can you compare the options?", 1]];
+  header: {
+    textAlign: "center",
+    marginBottom: 30,
+  },
 
-  const topics: ScorePair[] = [
-    ["Viewer interest", Math.min(95, 60 + positive)],
-    ["Content questions", Math.min(90, 40 + questionComments.length * 5)],
-    ["Audience requests", Math.min(85, 35 + comments.length)],
-    ["Engagement", Math.min(80, 30 + Math.round(total / 10))],
-  ];
+  backButton: {
+    border: "1px solid #cbd5e1",
+    background: "#ffffff",
+    color: "#334155",
+    borderRadius: 10,
+    padding: "9px 13px",
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: "pointer",
+    marginBottom: 18,
+  },
 
-  return {
-    comments: total, positive, neutral, negative, languages,
-    countries: [["Detected audience", 100]], topics, questions,
-    recommendations: [
-      { title: "Create a follow-up video", score: Math.min(98, 70 + Math.round(positive / 5)), reason: "Audience sentiment and repeated comments indicate interest in more content." },
-      { title: "Answer the top viewer questions", score: Math.min(95, 65 + questionComments.length * 4), reason: "Questions in the comments can directly become useful content ideas." },
-      { title: "Create a detailed audience guide", score: Math.min(92, 60 + Math.round(total / 20)), reason: "A structured guide can address repeated viewer needs in one video." },
-    ],
-  };
-}
+  badge: {
+    display: "inline-flex",
+    background: "#ede9fe",
+    color: "#6d28d9",
+    borderRadius: 999,
+    padding: "7px 13px",
+    fontSize: 11,
+    fontWeight: 800,
+  },
 
-function countWords(text: string, words: string[]): number {
-  return words.reduce((count, word) => count + ((text.match(new RegExp(escapeRegExp(word), "gi")) || []).length), 0);
-}
-function escapeRegExp(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+  heroTitle: {
+    fontSize: "clamp(32px, 7vw, 54px)",
+    lineHeight: 1.05,
+    margin: "15px 0 0",
+    fontWeight: 900,
+    letterSpacing: "-2px",
+  },
 
-function Metric({ icon, title, value }: { icon: React.ReactNode; title: string; value: string }) {
-  return <div style={styles.metricCard}><div style={styles.metricIcon}>{icon}</div><p style={styles.metricTitle}>{title}</p><p style={styles.metricValue}>{value}</p></div>;
-}
-function Sentiment({ label, value, symbol }: { label: string; value: number; symbol: string }) {
-  return <div style={styles.sentimentCard}><div style={styles.sentimentTop}><span>{symbol} {label}</span><strong>{value}%</strong></div><div style={styles.progressBackground}><div style={{ ...styles.progressFill, width: `${value}%` }} /></div></div>;
-}
-function ProgressRow({ name, value }: { name: string; value: number }) {
-  return <div style={{ marginBottom: 18 }}><div style={styles.progressTop}><span>{name}</span><strong>{value}%</strong></div><div style={styles.progressBackground}><div style={{ ...styles.progressFill, width: `${value}%` }} /></div></div>;
-}
-function InsightCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
-  return <div style={styles.card}><div style={styles.sectionHeader}><div>{icon}</div><h2 style={styles.sectionTitle}>{title}</h2></div>{children}</div>;
-}
-function SectionHeader({ icon, title, subtitle, dark = false }: { icon: React.ReactNode; title: string; subtitle?: string; dark?: boolean }) {
-  return <div style={styles.sectionHeader}><div style={{ color: dark ? "#fff" : "#0f172a" }}>{icon}</div><div><h2 style={{ ...styles.sectionTitle, color: dark ? "#fff" : "#0f172a" }}>{title}</h2>{subtitle && <p style={{ ...styles.sectionSubtitle, color: dark ? "#94a3b8" : "#64748b" }}>{subtitle}</p>}</div></div>;
-}
-function Action({ number, text }: { number: string; text: string }) {
-  return <div style={styles.actionCard}><div style={styles.actionNumber}>{number}</div><p style={styles.actionText}>{text}</p></div>;
-}
+  heroText: {
+    color: "#64748b",
+    fontSize: 15,
+    margin: "10px 0 0",
+  },
+
+  videoCard: {
+    display: "flex",
+    gap: 18,
+    alignItems: "center",
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 18,
+    flexWrap: "wrap",
+  },
+
+  thumbnail: {
+    width: 230,
+    maxWidth: "100%",
+    aspectRatio: "16 / 9",
+    objectFit: "cover",
+    borderRadius: 14,
+  },
+
+  videoInfo: {
+    flex: 1,
+    minWidth: 220,
+  },
+
+  videoLabel: {
+    fontSize: 10,
+    fontWeight: 900,
+    color: "#64748b",
+    letterSpacing: 1,
+  },
+
+  videoTitle: {
+    margin: "7px 0 0",
+    fontSize: 20,
+    lineHeight: 1.35,
+    fontWeight: 850,
+  },
+
+  videoChannel: {
+    margin: "7px 0 0",
+    color: "#64748b",
+    fontSize: 13,
+  },
+
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(190px, 1fr))",
+    gap: 13,
+  },
+
+  statCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 18,
+    padding: 18,
+  },
+
+  statTitle: {
+    color: "#64748b",
+    fontSize: 10,
+    fontWeight: 900,
+    letterSpacing: ".5px",
+  },
+
+  statValue: {
+    fontSize: 30,
+    fontWeight: 900,
+    marginTop: 8,
+  },
+
+  statDescription: {
+    color: "#94a3b8",
+    fontSize: 11,
+    marginTop: 4,
+  },
+
+  section: {
+    marginTop: 35,
+  },
+
+  sectionHeader: {
+    marginBottom: 15,
+  },
+
+  sectionTitle: {
+    margin: 0,
+    fontSize: 22,
+    fontWeight: 850,
+  },
+
+  sectionSubtitle: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+
+  sentimentCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 18,
+    padding: 20,
+    display: "flex",
+    alignItems: "center",
+    gap: 20,
+  },
+
+  sentimentScore: {
+    fontSize: 38,
+    fontWeight: 900,
+    minWidth: 105,
+  },
+
+  sentimentContent: {
+    flex: 1,
+  },
+
+  sentimentLabel: {
+    fontSize: 14,
+    fontWeight: 850,
+    marginBottom: 8,
+  },
+
+  progressBackground: {
+    height: 10,
+    background: "#e2e8f0",
+    borderRadius: 999,
+    overflow: "hidden",
+  },
+
+  progressBar: {
+    height: "100%",
+    background: "#0f172a",
+    borderRadius: 999,
+  },
+
+  sentimentText: {
+    color: "#64748b",
+    fontSize: 12,
+    margin: "9px 0 0",
+  },
+
+  topicGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: 11,
+  },
+
+  topicItem: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    padding: 13,
+    background: "#ffffff",
+  },
+
+  topicLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    minWidth: 0,
+  },
+
+  rank: {
+    width: 31,
+    height: 31,
+    borderRadius: 9,
+    background: "#f1f5f9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 11,
+    fontWeight: 900,
+    flexShrink: 0,
+  },
+
+  topicName: {
+    fontSize: 14,
+    fontWeight: 700,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+  },
+
+  score: {
+    background: "#0f172a",
+    color: "#ffffff",
+    padding: "6px 9px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+
+  questionItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    padding: 15,
+    marginBottom: 10,
+    background: "#ffffff",
+    flexWrap: "wrap",
+  },
+
+  questionContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  questionText: {
+    margin: 0,
+    fontSize: 14,
+    lineHeight: 1.5,
+    fontWeight: 700,
+  },
+
+  questionCount: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: 11,
+  },
+
+  opportunity: {
+    background: "#fef3c7",
+    color: "#92400e",
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 800,
+  },
+
+  languageGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: 12,
+  },
+
+  languageCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 15,
+    padding: 17,
+  },
+
+  languageName: {
+    fontSize: 16,
+    fontWeight: 850,
+  },
+
+  languageCount: {
+    marginTop: 6,
+    color: "#64748b",
+    fontSize: 12,
+  },
+
+  darkSection: {
+    marginTop: 35,
+    background: "#0f172a",
+    color: "#ffffff",
+    borderRadius: 22,
+    padding: "24px 20px",
+  },
+
+  recommendGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(250px, 1fr))",
+    gap: 13,
+  },
+
+  recommendCard: {
+    background: "rgba(255,255,255,.07)",
+    border: "1px solid rgba(255,255,255,.1)",
+    borderRadius: 16,
+    padding: 17,
+  },
+
+  recommendTop: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  number: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: 800,
+  },
+
+  recommendScore: {
+    background: "#ffffff",
+    color: "#0f172a",
+    padding: "6px 9px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 900,
+  },
+
+  recommendTitle: {
+    margin: "17px 0 8px",
+    fontSize: 17,
+    lineHeight: 1.35,
+    fontWeight: 800,
+  },
+
+  recommendReason: {
+    margin: 0,
+    color: "#cbd5e1",
+    fontSize: 12,
+    lineHeight: 1.6,
+  },
+
+  planButton: {
+    width: "100%",
+    marginTop: 15,
+    border: "1px solid rgba(255,255,255,.15)",
+    borderRadius: 10,
+    background: "#ffffff",
+    color: "#0f172a",
+    padding: "10px 12px",
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+
+  darkEmptyText: {
+    color: "#cbd5e1",
+    fontSize: 13,
+  }
+
+// Part 3/3 — paste this after Part 2
 
 const styles: Record<string, React.CSSProperties> = {
-  page: { minHeight: "100vh", background: "#f8fafc", color: "#0f172a", padding: "28px 16px 60px", fontFamily: "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif" },
-  container: { width: "100%", maxWidth: 1200, margin: "0 auto" },
-  backButton: { display: "inline-flex", alignItems: "center", gap: 8, border: "none", background: "transparent", color: "#475569", fontWeight: 700, fontSize: 14, padding: "8px 0", cursor: "pointer", marginBottom: 20 },
-  header: { display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 20, flexWrap: "wrap", marginBottom: 24 },
-  badge: { display: "inline-flex", alignItems: "center", gap: 6, background: "#dcfce7", color: "#166534", borderRadius: 999, padding: "7px 12px", fontSize: 11, fontWeight: 800, marginBottom: 12 },
-  title: { margin: 0, fontSize: "clamp(30px, 6vw, 44px)", lineHeight: 1.1, fontWeight: 900, letterSpacing: "-1px" },
-  subtitle: { margin: "9px 0 0", color: "#64748b", fontSize: 14, maxWidth: 700 },
-  sourceBox: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: "11px 15px", color: "#64748b", fontSize: 13 },
-  videoCard: { display: "flex", alignItems: "center", gap: 18, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, padding: 16, marginBottom: 18, boxShadow: "0 3px 12px rgba(15,23,42,.05)", flexWrap: "wrap" },
-  videoInfo: { minWidth: 0, flex: 1 }, thumbnail: { width: 180, height: 100, objectFit: "cover", borderRadius: 12 }, videoTitle: { margin: 0, fontSize: 18, fontWeight: 800 }, videoChannel: { margin: "7px 0 0", color: "#475569", fontSize: 13 }, videoId: { margin: "5px 0 0", color: "#94a3b8", fontSize: 11 },
-  metricsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(210px, 1fr))", gap: 15 }, metricCard: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 18, padding: 20, boxShadow: "0 3px 12px rgba(15,23,42,.05)" }, metricIcon: { color: "#475569" }, metricTitle: { color: "#64748b", fontSize: 13, margin: "14px 0 4px" }, metricValue: { margin: 0, fontSize: 28, fontWeight: 900 },
-  card: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, padding: 22, marginTop: 18, boxShadow: "0 3px 12px rgba(15,23,42,.05)" }, commentsCard: { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 20, padding: 22, marginTop: 18, boxShadow: "0 3px 12px rgba(15,23,42,.05)" }, darkCard: { background: "#0f172a", borderRadius: 24, padding: 24, marginTop: 18, color: "#fff" },
-  sectionHeader: { display: "flex", alignItems: "center", gap: 11, marginBottom: 19 }, sectionTitle: { margin: 0, fontSize: 19, fontWeight: 850 }, sectionSubtitle: { margin: "4px 0 0", fontSize: 12 }, threeGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 13 }, twoGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 18 },
-  sentimentCard: { border: "1px solid #e2e8f0", borderRadius: 14, padding: 16 }, sentimentTop: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, fontSize: 14 }, progressBackground: { height: 8, background: "#e2e8f0", borderRadius: 999, overflow: "hidden", marginTop: 9 }, progressFill: { height: "100%", background: "#0f172a", borderRadius: 999 }, progressTop: { display: "flex", justifyContent: "space-between", color: "#475569", fontSize: 13, marginBottom: 6 }, note: { color: "#94a3b8", fontSize: 11, lineHeight: 1.5, marginTop: 3 },
-  topicGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 11 }, topicItem: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, border: "1px solid #e2e8f0", borderRadius: 14, padding: 13 }, topicLeft: { display: "flex", alignItems: "center", gap: 9, minWidth: 0 }, rank: { width: 31, height: 31, borderRadius: 9, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }, topicName: { fontSize: 14, fontWeight: 700 }, score: { background: "#0f172a", color: "#fff", padding: "6px 9px", borderRadius: 999, fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" },
-  questionItem: { display: "flex", alignItems: "center", gap: 14, border: "1px solid #e2e8f0", borderRadius: 14, padding: 15, marginBottom: 10, flexWrap: "wrap" }, questionContent: { flex: 1, minWidth: 0 }, questionText: { margin: 0, fontSize: 14, lineHeight: 1.5, fontWeight: 700 }, questionCount: { margin: "5px 0 0", color: "#64748b", fontSize: 11 }, opportunity: { background: "#fef3c7", color: "#92400e", padding: "6px 10px", borderRadius: 999, fontSize: 10, fontWeight: 800 },
-  recommendGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))", gap: 13 }, recommendCard: { background: "rgba(255,255,255,.07)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 16, padding: 17 }, recommendTop: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }, number: { color: "#cbd5e1", fontSize: 12, fontWeight: 800 }, recommendScore: { background: "#fff", color: "#0f172a", padding: "6px 9px", borderRadius: 999, fontSize: 10, fontWeight: 900 }, recommendTitle: { margin: "17px 0 8px", fontSize: 17, lineHeight: 1.35, fontWeight: 800 }, recommendReason: { margin: 0, color: "#cbd5e1", fontSize: 12, lineHeight: 1.6 }, planButton: { width: "100%", marginTop: 15, border: "1px solid rgba(255,255,255,.15)", borderRadius: 10, background: "#fff", color: "#0f172a", padding: "10px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer" },
-  actionCard: { border: "1px solid #e2e8f0", borderRadius: 14, padding: 15 }, actionNumber: { width: 30, height: 30, borderRadius: 9, background: "#0f172a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 12 }, actionText: { margin: "12px 0 0", color: "#475569", fontSize: 13, lineHeight: 1.55 }, commentItem: { display: "flex", alignItems: "flex-start", gap: 12, borderBottom: "1px solid #f1f5f9", padding: "13px 0" }, commentAvatar: { width: 34, height: 34, minWidth: 34, borderRadius: "50%", background: "#e2e8f0", color: "#334155", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 900 }, commentAuthor: { fontSize: 12, color: "#334155" }, commentText: { margin: "4px 0 0", color: "#475569", fontSize: 13, lineHeight: 1.5 }, emptyText: { color: "#94a3b8", fontSize: 13 }, footer: { textAlign: "center", color: "#94a3b8
+  page: {
+    minHeight: "100vh",
+    background: "#f8fafc",
+    color: "#0f172a",
+    padding: "28px 16px 60px",
+    fontFamily:
+      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
+  },
+
+  container: {
+    width: "100%",
+    maxWidth: 1180,
+    margin: "0 auto",
+  },
+
+  topBar: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 24,
+    flexWrap: "wrap",
+  },
+
+  backButton: {
+    border: "1px solid #e2e8f0",
+    background: "#ffffff",
+    color: "#334155",
+    borderRadius: 10,
+    padding: "9px 13px",
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+
+  sourceBadge: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 7,
+    background: "#ede9fe",
+    color: "#6d28d9",
+    borderRadius: 999,
+    padding: "8px 13px",
+    fontSize: 11,
+    fontWeight: 800,
+  },
+
+  hero: {
+    background: "#0f172a",
+    color: "#ffffff",
+    borderRadius: 24,
+    padding: "26px",
+    marginBottom: 18,
+  },
+
+  heroTitle: {
+    margin: 0,
+    fontSize: "clamp(25px, 5vw, 38px)",
+    fontWeight: 900,
+    letterSpacing: "-1px",
+  },
+
+  heroText: {
+    margin: "8px 0 0",
+    color: "#cbd5e1",
+    fontSize: 14,
+    lineHeight: 1.6,
+  },
+
+  videoCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 18,
+    padding: 18,
+    marginBottom: 18,
+  },
+
+  videoLayout: {
+    display: "grid",
+    gridTemplateColumns: "minmax(240px, 340px) 1fr",
+    gap: 18,
+    alignItems: "center",
+  },
+
+  thumbnail: {
+    width: "100%",
+    display: "block",
+    borderRadius: 14,
+    aspectRatio: "16 / 9",
+    objectFit: "cover",
+  },
+
+  videoTitle: {
+    margin: 0,
+    fontSize: 20,
+    fontWeight: 850,
+  },
+
+  videoMeta: {
+    marginTop: 8,
+    color: "#64748b",
+    fontSize: 13,
+    lineHeight: 1.6,
+  },
+
+  statsGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(160px, 1fr))",
+    gap: 12,
+    marginBottom: 18,
+  },
+
+  statCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 16,
+    padding: 18,
+  },
+
+  statLabel: {
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: 800,
+    textTransform: "uppercase",
+    letterSpacing: ".5px",
+  },
+
+  statValue: {
+    marginTop: 7,
+    fontSize: 27,
+    fontWeight: 900,
+  },
+
+  section: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 18,
+    padding: 20,
+    marginBottom: 18,
+  },
+
+  sectionTitle: {
+    margin: 0,
+    fontSize: 19,
+    fontWeight: 850,
+  },
+
+  sectionSubtitle: {
+    margin: "5px 0 16px",
+    color: "#64748b",
+    fontSize: 12,
+  },
+
+  topicGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: 11,
+  },
+
+  topicItem: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    padding: 13,
+  },
+
+  topicLeft: {
+    display: "flex",
+    alignItems: "center",
+    gap: 9,
+    minWidth: 0,
+  },
+
+  rank: {
+    width: 31,
+    height: 31,
+    borderRadius: 9,
+    background: "#f1f5f9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 12,
+    fontWeight: 900,
+    flexShrink: 0,
+  },
+
+  topicName: {
+    fontSize: 14,
+    fontWeight: 700,
+  },
+
+  score: {
+    background: "#0f172a",
+    color: "#ffffff",
+    padding: "6px 9px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 800,
+    whiteSpace: "nowrap",
+  },
+
+  questionItem: {
+    display: "flex",
+    alignItems: "center",
+    gap: 14,
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    padding: 15,
+    marginBottom: 10,
+    flexWrap: "wrap",
+  },
+
+  questionContent: {
+    flex: 1,
+    minWidth: 0,
+  },
+
+  questionText: {
+    margin: 0,
+    fontSize: 14,
+    lineHeight: 1.5,
+    fontWeight: 700,
+  },
+
+  questionCount: {
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: 11,
+  },
+
+  opportunity: {
+    background: "#fef3c7",
+    color: "#92400e",
+    padding: "6px 10px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 800,
+  },
+
+  recommendSection: {
+    background: "#0f172a",
+    color: "#ffffff",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 18,
+  },
+
+  recommendGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(250px, 1fr))",
+    gap: 13,
+  },
+
+  recommendCard: {
+    background: "rgba(255,255,255,.07)",
+    border: "1px solid rgba(255,255,255,.1)",
+    borderRadius: 16,
+    padding: 17,
+  },
+
+  recommendTop: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+
+  number: {
+    color: "#cbd5e1",
+    fontSize: 12,
+    fontWeight: 800,
+  },
+
+  recommendScore: {
+    background: "#ffffff",
+    color: "#0f172a",
+    padding: "6px 9px",
+    borderRadius: 999,
+    fontSize: 10,
+    fontWeight: 900,
+  },
+
+  recommendTitle: {
+    margin: "17px 0 8px",
+    fontSize: 17,
+    lineHeight: 1.35,
+    fontWeight: 800,
+  },
+
+  recommendReason: {
+    margin: 0,
+    color: "#cbd5e1",
+    fontSize: 12,
+    lineHeight: 1.6,
+  },
+
+  planButton: {
+    width: "100%",
+    marginTop: 15,
+    border: "1px solid rgba(255,255,255,.15)",
+    borderRadius: 10,
+    background: "#ffffff",
+    color: "#0f172a",
+    padding: "10px 12px",
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+
+  actionGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: 12,
+  },
+
+  actionCard: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    padding: 15,
+  },
+
+  actionNumber: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    background: "#0f172a",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 900,
+    fontSize: 12,
+  },
+
+  actionText: {
+    margin: "12px 0 0",
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 1.55,
+  },
+
+  commentItem: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+    borderBottom: "1px solid #f1f5f9",
+    padding: "13px 0",
+  },
+
+  commentAvatar: {
+    width: 34,
+    height: 34,
+    minWidth: 34,
+    borderRadius: "50%",
+    background: "#e2e8f0",
+    color: "#334155",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 12,
+    fontWeight: 900,
+  },
+
+  commentAuthor: {
+    fontSize: 12,
+    color: "#334155",
+  },
+
+  commentText: {
+    margin: "4px 0 0",
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+
+  emptyText: {
+    color: "#94a3b8",
+    fontSize: 13,
+  },
+
+  footer: {
+    textAlign: "center",
+    color: "#94a3b8",
+    fontSize: 11,
+    paddingTop: 12,
+  },
+};
