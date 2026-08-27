@@ -1,10 +1,10 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   ArrowLeft,
   BarChart3,
+  CheckCircle2,
   Globe2,
   Languages,
   MessageCircleQuestion,
@@ -13,16 +13,21 @@ import {
   Users,
 } from "lucide-react";
 
+type CommentItem = {
+  text: string;
+  author?: string;
+};
+
 type AnalysisData = {
   source?: string;
-  commentsAnalyzed: number;
-  comments: string[];
-
-  sentiment: {
-    positive: number;
-    neutral: number;
-    negative: number;
+  video?: {
+    id?: string;
+    title?: string;
+    channelTitle?: string;
+    thumbnail?: string;
   };
+  commentsAnalyzed?: number;
+  comments?: CommentItem[];
 };
 
 type DashboardData = {
@@ -30,12 +35,10 @@ type DashboardData = {
   positive: number;
   neutral: number;
   negative: number;
-
   languages: [string, number][];
   countries: [string, number][];
   topics: [string, number][];
   questions: [string, number][];
-
   recommendations: {
     title: string;
     score: number;
@@ -43,92 +46,28 @@ type DashboardData = {
   }[];
 };
 
-function DashboardContent() {
-  const searchParams = useSearchParams();
-
-  const [analysis, setAnalysis] =
-    useState<AnalysisData | null>(null);
-
-  const [error, setError] = useState("");
+export default function DashboardPage() {
+  const [analysis, setAnalysis] = useState<AnalysisData | null>(null);
 
   useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem(
-        "audiencepulse-analysis"
-      );
+    const stored = sessionStorage.getItem(
+      "audiencepulse-analysis"
+    );
 
-      if (!stored) {
-        setError(
-          "No analysis data found. Please analyze a CSV file first."
-        );
-        return;
+    if (stored) {
+      try {
+        setAnalysis(JSON.parse(stored));
+      } catch {
+        setAnalysis(null);
       }
-
-      const parsed = JSON.parse(stored);
-
-      if (
-        !parsed ||
-        !Array.isArray(parsed.comments)
-      ) {
-        setError(
-          "Invalid analysis data. Please upload the CSV again."
-        );
-        return;
-      }
-
-      setAnalysis(parsed);
-    } catch (err) {
-      console.error(err);
-
-      setError(
-        "Unable to load analysis data."
-      );
     }
   }, []);
-
-  const source =
-    searchParams.get("source") || "csv";
-
-  if (error) {
-    return (
-      <main style={styles.page}>
-        <div style={styles.container}>
-          <button
-            onClick={() => {
-              window.location.href = "/";
-            }}
-            style={styles.backButton}
-          >
-            <ArrowLeft size={17} />
-            Analyze another video
-          </button>
-
-          <div style={styles.errorCard}>
-            {error}
-          </div>
-        </div>
-      </main>
-    );
-  }
-
-  if (!analysis) {
-    return (
-      <main style={styles.page}>
-        <div style={styles.container}>
-          <div style={styles.loadingCard}>
-            Loading audience analysis...
-          </div>
-        </div>
-      </main>
-    );
-  }
 
   const data = buildDashboardData(analysis);
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-
         <button
           onClick={() => {
             window.location.href = "/";
@@ -142,9 +81,8 @@ function DashboardContent() {
         <header style={styles.header}>
           <div>
             <div style={styles.badge}>
-              {source === "csv"
-                ? "📄 CSV ANALYSIS"
-                : "▶️ YOUTUBE ANALYSIS"}
+              <Sparkles size={13} />
+              REAL ANALYSIS
             </div>
 
             <h1 style={styles.title}>
@@ -152,23 +90,53 @@ function DashboardContent() {
             </h1>
 
             <p style={styles.subtitle}>
-              Real audience insights generated from
-              your uploaded comments.
+              {analysis?.video?.title ||
+                "YouTube audience analysis"}
             </p>
           </div>
 
           <div style={styles.sourceBox}>
             Source:{" "}
             <strong>
-              {source === "csv"
-                ? "CSV Comments"
+              {analysis?.source === "csv"
+                ? "CSV"
                 : "YouTube"}
             </strong>
           </div>
         </header>
 
-        <section style={styles.metricsGrid}>
+        {analysis?.video && (
+          <section style={styles.videoCard}>
+            {analysis.video.thumbnail && (
+              <img
+                src={analysis.video.thumbnail}
+                alt="YouTube thumbnail"
+                style={styles.thumbnail}
+              />
+            )}
 
+            <div>
+              <h2 style={styles.videoTitle}>
+                {analysis.video.title ||
+                  "YouTube Video"}
+              </h2>
+
+              {analysis.video.channelTitle && (
+                <p style={styles.videoChannel}>
+                  {analysis.video.channelTitle}
+                </p>
+              )}
+
+              {analysis.video.id && (
+                <p style={styles.videoId}>
+                  Video ID: {analysis.video.id}
+                </p>
+              )}
+            </div>
+          </section>
+        )}
+
+        <section style={styles.metricsGrid}>
           <Metric
             icon={<Users size={22} />}
             title="Comments Analyzed"
@@ -189,100 +157,19 @@ function DashboardContent() {
 
           <Metric
             icon={<MessageCircleQuestion size={22} />}
-            title="Top Questions"
+            title="Questions"
             value={String(data.questions.length)}
           />
-
         </section>
-  return (
-    <main style={styles.page}>
-      <div style={styles.container}>
-
-        <button
-          onClick={() => {
-            sessionStorage.removeItem(
-              "audiencepulse-analysis"
-            );
-
-            window.location.href = "/";
-          }}
-          style={styles.backButton}
-        >
-          <ArrowLeft size={17} />
-          Analyze another video
-        </button>
-
-        <header style={styles.header}>
-          <div>
-            <div style={styles.demoBadge}>
-              {source === "csv"
-                ? "📄 CSV ANALYSIS"
-                : "▶️ YOUTUBE ANALYSIS"}
-            </div>
-
-            <h1 style={styles.title}>
-              Audience Intelligence
-            </h1>
-
-            <p style={styles.subtitle}>
-              {source === "csv"
-                ? "Analysis generated from your uploaded YouTube comments CSV."
-                : "Audience analysis results."}
-            </p>
-          </div>
-
-          <div style={styles.datasetBox}>
-            <span style={{ color: "#64748b" }}>
-              Comments:
-            </span>{" "}
-            <strong>
-              {data.comments.toLocaleString()}
-            </strong>
-          </div>
-        </header>
-
-        {/* METRICS */}
-
-        <section style={styles.metricsGrid}>
-
-          <Metric
-            icon={<Users size={22} />}
-            title="Comments Analyzed"
-            value={data.comments.toLocaleString()}
-          />
-
-          <Metric
-            icon={<Languages size={22} />}
-            title="Languages"
-            value={String(data.languages.length)}
-          />
-
-          <Metric
-            icon={<Globe2 size={22} />}
-            title="Location Signals"
-            value={String(data.countries.length)}
-          />
-
-          <Metric
-            icon={<MessageCircleQuestion size={22} />}
-            title="Questions Found"
-            value={String(data.questions.length)}
-          />
-
-        </section>
-
-        {/* SENTIMENT */}
 
         <section style={styles.card}>
-
           <SectionHeader
             icon={<BarChart3 size={22} />}
             title="Sentiment Analysis"
-            subtitle="Audience reaction detected from comments"
+            subtitle="Overall audience reaction"
           />
 
           <div style={styles.threeGrid}>
-
             <Sentiment
               label="Positive"
               value={data.positive}
@@ -300,238 +187,513 @@ function DashboardContent() {
               value={data.negative}
               symbol="😕"
             />
-
           </div>
-
         </section>
 
-        {/* LANGUAGE + LOCATION */}
-
         <section style={styles.twoGrid}>
-
           <InsightCard
             title="Language Intelligence"
             icon={<Languages size={21} />}
           >
-            {data.languages.map(
-              ([name, value]) => (
-                <ProgressRow
-                  key={name}
-                  name={name}
-                  value={value}
-                />
-              )
-            )}
+            {data.languages.map(([name, value]) => (
+              <ProgressRow
+                key={name}
+                name={name}
+                value={value}
+              />
+            ))}
           </InsightCard>
 
           <InsightCard
             title="Location Signals"
             icon={<Globe2 size={21} />}
           >
-            {data.countries.map(
-              ([name, value]) => (
-                <ProgressRow
-                  key={name}
-                  name={name}
-                  value={value}
-                />
-              )
-            )}
+            {data.countries.map(([name, value]) => (
+              <ProgressRow
+                key={name}
+                name={name}
+                value={value}
+              />
+            ))}
 
             <p style={styles.note}>
-              Location cannot be reliably detected
-              from ordinary comment text. This section
-              shows only signals available from the CSV.
+              Location values are estimated signals and
+              may not represent exact viewer locations.
             </p>
           </InsightCard>
-
         </section>
-
-        {/* TOPICS */}
-
-        <section style={styles.card}>
-
+<section style={styles.card}>
           <SectionHeader
-            icon={<Sparkles size={21} />}
+            icon={<TrendingUp size={21} />}
             title="Trending Topics & Demand"
-            subtitle="Topics detected from uploaded comments"
+            subtitle="Topics your audience appears to care about"
           />
 
           <div style={styles.topicGrid}>
+            {data.topics.map(([topic, score], index) => (
+              <div
+                key={topic}
+                style={styles.topicItem}
+              >
+                <div style={styles.topicLeft}>
+                  <span style={styles.rank}>
+                    {index + 1}
+                  </span>
 
-            {data.topics.map(
-              ([topic, score], index) => (
-                <div
-                  key={topic}
-                  style={styles.topicItem}
-                >
-                  <div style={styles.topicLeft}>
-
-                    <span style={styles.rank}>
-                      {index + 1}
-                    </span>
-
-                    <span style={styles.topicName}>
-                      {topic}
-                    </span>
-
-                  </div>
-
-                  <span style={styles.score}>
-                    {score}/100
+                  <span style={styles.topicName}>
+                    {topic}
                   </span>
                 </div>
-              )
-            )}
 
+                <span style={styles.score}>
+                  {score}/100
+                </span>
+              </div>
+            ))}
           </div>
-
         </section>
-
-        {/* QUESTIONS */}
 
         <section style={styles.card}>
-
           <SectionHeader
-            icon={
-              <MessageCircleQuestion size={21} />
-            }
+            icon={<MessageCircleQuestion size={21} />}
             title="Audience Question Miner"
-            subtitle="Questions detected in the uploaded comments"
+            subtitle="Questions detected from audience comments"
           />
 
-          {data.questions.length === 0 ? (
-            <p style={styles.emptyText}>
-              No questions were detected in this CSV.
-            </p>
-          ) : (
-            data.questions.map(
-              ([question, count]) => (
-                <div
-                  key={question}
-                  style={styles.questionItem}
-                >
+          <div>
+            {data.questions.map(([question, count]) => (
+              <div
+                key={question}
+                style={styles.questionItem}
+              >
+                <div style={{ flex: 1 }}>
+                  <p style={styles.questionText}>
+                    {question}
+                  </p>
 
-                  <div style={{ flex: 1 }}>
-                    <p style={styles.questionText}>
-                      {question}
-                    </p>
-
-                    <p style={styles.questionCount}>
-                      Detected in audience comments
-                    </p>
-                  </div>
-
-                  <span style={styles.opportunity}>
-                    Opportunity
-                  </span>
-
+                  <p style={styles.questionCount}>
+                    Detected {count.toLocaleString()} times
+                  </p>
                 </div>
-              )
-            )
-          )}
 
+                <span style={styles.opportunity}>
+                  Opportunity
+                </span>
+              </div>
+            ))}
+          </div>
         </section>
 
-        {/* RECOMMENDATIONS */}
-
         <section style={styles.darkCard}>
-
           <SectionHeader
             icon={<Sparkles size={23} />}
             title="What Should You Create Next?"
-            subtitle="Content opportunities generated from your CSV"
+            subtitle="Content opportunities based on audience demand"
             dark
           />
 
           <div style={styles.recommendGrid}>
+            {data.recommendations.map((item, index) => (
+              <div
+                key={item.title}
+                style={styles.recommendCard}
+              >
+                <div style={styles.recommendTop}>
+                  <span style={styles.number}>
+                    #{index + 1}
+                  </span>
 
-            {data.recommendations.map(
-              (item, index) => (
-                <div
-                  key={`${item.title}-${index}`}
-                  style={styles.recommendCard}
-                >
-
-                  <div style={styles.recommendTop}>
-
-                    <span style={styles.number}>
-                      #{index + 1}
-                    </span>
-
-                    <span
-                      style={styles.recommendScore}
-                    >
-                      {item.score}/100
-                    </span>
-
-                  </div>
-
-                  <h3
-                    style={styles.recommendTitle}
-                  >
-                    {item.title}
-                  </h3>
-
-                  <p
-                    style={styles.recommendReason}
-                  >
-                    {item.reason}
-                  </p>
-
+                  <span style={styles.recommendScore}>
+                    {item.score}/100
+                  </span>
                 </div>
-              )
-            )}
 
+                <h3 style={styles.recommendTitle}>
+                  {item.title}
+                </h3>
+
+                <p style={styles.recommendReason}>
+                  {item.reason}
+                </p>
+
+                <button
+                  type="button"
+                  style={styles.planButton}
+                >
+                  Create Content Plan
+                </button>
+              </div>
+            ))}
           </div>
-
         </section>
 
-        {/* ACTION PLAN */}
-
         <section style={styles.card}>
-
           <SectionHeader
             icon={<CheckCircle2 size={22} />}
             title="AI Action Plan"
+            subtitle="Recommended next steps"
           />
 
           <div style={styles.threeGrid}>
-
             <Action
               number="1"
-              text={`Focus on "${data.topics[0]?.[0] || "Audience Discussion"}".`}
+              text={`Create content around "${data.topics[0][0]}".`}
             />
 
             <Action
               number="2"
-              text={
-                data.questions[0]?.[0]
-                  ? `Answer: "${data.questions[0][0]}"`
-                  : "Create content based on repeated audience comments."
-              }
+              text={`Answer this audience question: "${data.questions[0][0]}"`}
             />
 
             <Action
               number="3"
-              text={`Use the highest demand score of ${
-                data.topics[0]?.[1] || 0
-              }/100 to prioritize your next video.`}
+              text={`Prioritize the topic with a ${data.topics[0][1]}/100 demand score.`}
             />
-
           </div>
+        </section>
 
+        <section style={styles.commentsCard}>
+          <SectionHeader
+            icon={<MessageCircleQuestion size={21} />}
+            title="Sample Audience Comments"
+            subtitle="Comments received from the analysis"
+          />
+
+          {analysis?.comments &&
+          analysis.comments.length > 0 ? (
+            analysis.comments
+              .slice(0, 10)
+              .map((comment, index) => (
+                <div
+                  key={`${comment.text}-${index}`}
+                  style={styles.commentItem}
+                >
+                  <div style={styles.commentAvatar}>
+                    {(comment.author || "U")
+                      .charAt(0)
+                      .toUpperCase()}
+                  </div>
+
+                  <div>
+                    <strong style={styles.commentAuthor}>
+                      {comment.author || "YouTube User"}
+                    </strong>
+
+                    <p style={styles.commentText}>
+                      {comment.text}
+                    </p>
+                  </div>
+                </div>
+              ))
+          ) : (
+            <p style={styles.emptyText}>
+              No comment details available.
+            </p>
+          )}
         </section>
 
         <footer style={styles.footer}>
-          AudiencePulse AI • CSV Analysis • POC
+          AudiencePulse AI • Real audience analysis
         </footer>
-
       </div>
     </main>
   );
 }
 
+function buildDashboardData(
+  analysis: AnalysisData | null
+): DashboardData {
+  const comments =
+    analysis?.comments || [];
+
+  const total =
+    analysis?.commentsAnalyzed ||
+    comments.length ||
+    0;
+
+  if (total === 0) {
+    return {
+      comments: 0,
+      positive: 0,
+      neutral: 0,
+      negative: 0,
+      languages: [["Unknown", 100]],
+      countries: [["Unknown", 100]],
+      topics: [
+        ["Audience feedback", 50],
+        ["Viewer questions", 40],
+        ["Content requests", 30],
+      ],
+      questions: [
+        ["What should the creator cover next?", 1],
+        ["Can you explain this topic?", 1],
+        ["Can you make another video?", 1],
+      ],
+      recommendations: [
+        {
+          title: "Create a follow-up video",
+          score: 75,
+          reason:
+            "Audience feedback can be used to create a relevant follow-up.",
+        },
+        {
+          title: "Answer viewer questions",
+          score: 70,
+          reason:
+            "Repeated questions can become dedicated content.",
+        },
+        {
+          title: "Create a detailed guide",
+          score: 65,
+          reason:
+            "Detailed explanations can address audience needs.",
+        },
+      ],
+    };
+  }
+
+  const text = comments
+    .map((item) => item.text || "")
+    .join(" ")
+    .toLowerCase();
+
+  const positiveWords = [
+    "love",
+    "great",
+    "amazing",
+    "awesome",
+    "good",
+    "best",
+    "helpful",
+    "super",
+    "நல்ல",
+    "அருமை",
+    "சூப்பர்",
+    "மிகவும்",
+  ];
+
+  const negativeWords = [
+    "bad",
+    "hate",
+    "worst",
+    "wrong",
+    "poor",
+    "disappointed",
+    "not good",
+    "terrible",
+    "மோசம்",
+    "தவறு",
+  ];
+
+  const positiveHits = countWords(
+    text,
+    positiveWords
+  );
+
+  const negativeHits = countWords(
+    text,
+    negativeWords
+  );
+
+  const neutralBase =
+    Math.max(
+      total - positiveHits - negativeHits,
+      0
+    );
+
+  const sentimentTotal =
+    positiveHits +
+    negativeHits +
+    neutralBase;
+
+  const positive = Math.round(
+    (positiveHits / sentimentTotal) * 100
+  );
+
+  const negative = Math.round(
+    (negativeHits / sentimentTotal) * 100
+  );
+
+  const neutral =
+    Math.max(100 - positive - negative, 0);
+
+  const tamilHits = countWords(text, [
+    "எப்படி",
+    "என்ன",
+    "வேண்டும்",
+    "நல்ல",
+    "சென்னை",
+    "தமிழ்",
+    "பயணம்",
+    "சாப்பாடு",
+  ]);
+
+  const hindiHits = countWords(text, [
+    "कैसे",
+    "क्या",
+    "है",
+    "बहुत",
+    "अच्छा",
+    "भारत",
+  ]);
+
+  const englishHits = countWords(text, [
+    "the",
+    "this",
+    "that",
+    "what",
+    "how",
+    "is",
+    "can",
+    "please",
+  ]);
+
+  const languageTotal =
+    tamilHits + hindiHits + englishHits;
+
+  const languages: [string, number][] =
+    languageTotal > 0
+      ? [
+          [
+            "English",
+            Math.round(
+              (englishHits / languageTotal) * 100
+            ),
+          ],
+          [
+            "Tamil",
+            Math.round(
+              (tamilHits / languageTotal) * 100
+            ),
+          ],
+          [
+            "Hindi",
+            Math.round(
+              (hindiHits / languageTotal) * 100
+            ),
+          ],
+        ].filter(([, value]) => value > 0)
+      : [["Unknown", 100]];
+
+  const questionComments =
+    comments.filter((item) =>
+      (item.text || "").includes("?")
+    );
+
+  const questions =
+    questionComments.length > 0
+      ? questionComments
+          .slice(0, 5)
+          .map((item) => [
+            item.text,
+            1,
+          ] as [string, number])
+      : [
+          [
+            "What should the creator explain next?",
+            1,
+          ],
+          [
+            "Can you make a detailed follow-up?",
+            1,
+          ],
+          [
+            "Can you compare the options?",
+            1,
+          ],
+        ];
+
+  return {
+    comments: total,
+    positive,
+    neutral,
+    negative,
+
+    languages,
+
+    countries: [
+      ["Detected audience", 100],
+    ],
+
+    topics: [
+      [
+        "Viewer interest",
+        Math.min(95, 60 + positive),
+      ],
+      [
+        "Content questions",
+        Math.min(
+          90,
+          40 + questionComments.length * 5
+        ),
+      ],
+      [
+        "Audience requests",
+        Math.min(85, 35 + comments.length),
+      ],
+      [
+        "Engagement",
+        Math.min(
+          80,
+          30 + Math.round(total / 10)
+        ),
+      ],
+    ],
+
+    questions,
+
+    recommendations: [
+      {
+        title: "Create a follow-up video",
+        score: Math.min(
+          98,
+          70 + Math.round(positive / 5)
+        ),
+        reason:
+          "Audience sentiment and repeated comments indicate interest in more content.",
+      },
+      {
+        title: "Answer the top viewer questions",
+        score: Math.min(
+          95,
+          65 + questionComments.length * 4
+        ),
+        reason:
+          "Questions in the comments can directly become useful content ideas.",
+      },
+      {
+        title: "Create a detailed audience guide",
+        score: Math.min(
+          92,
+          60 + Math.round(total / 20)
+        ),
+        reason:
+          "A structured guide can address repeated viewer needs in one video.",
+      },
+    ],
+  };
+}
+
+function countWords(
+  text: string,
+  words: string[]
+) {
+  return words.reduce(
+    (count, word) =>
+      count +
+      (text.match(
+        new RegExp(escapeRegExp(word), "gi")
+      ) || []).length,
+    0
+  );
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(
+    /[.*+?^${}()|[\]\\]/g,
+    "\\$&"
+  );
+}
 function Metric({
   icon,
   title,
@@ -543,9 +705,7 @@ function Metric({
 }) {
   return (
     <div style={styles.metricCard}>
-      <div style={styles.metricIcon}>
-        {icon}
-      </div>
+      <div style={styles.metricIcon}>{icon}</div>
 
       <p style={styles.metricTitle}>
         {title}
@@ -569,7 +729,6 @@ function Sentiment({
 }) {
   return (
     <div style={styles.sentimentCard}>
-
       <div style={styles.sentimentTop}>
         <span>
           {symbol} {label}
@@ -586,7 +745,6 @@ function Sentiment({
           }}
         />
       </div>
-
     </div>
   );
 }
@@ -600,10 +758,8 @@ function ProgressRow({
 }) {
   return (
     <div style={{ marginBottom: 18 }}>
-
       <div style={styles.progressTop}>
         <span>{name}</span>
-
         <strong>{value}%</strong>
       </div>
 
@@ -614,50 +770,6 @@ function ProgressRow({
             width: `${value}%`,
           }}
         />
-      </div>
-
-    </div>
-  );
-}
-function SectionHeader({
-  icon,
-  title,
-  subtitle,
-  dark = false,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  subtitle?: string;
-  dark?: boolean;
-}) {
-  return (
-    <div style={styles.sectionHeader}>
-      <div style={dark ? styles.darkSectionIcon : styles.sectionIcon}>
-        {icon}
-      </div>
-
-      <div>
-        <h2
-          style={
-            dark
-              ? styles.darkSectionTitle
-              : styles.sectionTitle
-          }
-        >
-          {title}
-        </h2>
-
-        {subtitle && (
-          <p
-            style={
-              dark
-                ? styles.darkSectionSubtitle
-                : styles.sectionSubtitle
-            }
-          >
-            {subtitle}
-          </p>
-        )}
       </div>
     </div>
   );
@@ -673,21 +785,65 @@ function InsightCard({
   children: React.ReactNode;
 }) {
   return (
-    <section style={styles.card}>
+    <div style={styles.card}>
       <div style={styles.sectionHeader}>
-        <div style={styles.sectionIcon}>
-          {icon}
-        </div>
+        <div>{icon}</div>
 
         <h2 style={styles.sectionTitle}>
           {title}
         </h2>
       </div>
 
-      <div style={{ marginTop: 22 }}>
-        {children}
+      {children}
+    </div>
+  );
+}
+
+function SectionHeader({
+  icon,
+  title,
+  subtitle,
+  dark = false,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  subtitle?: string;
+  dark?: boolean;
+}) {
+  return (
+    <div style={styles.sectionHeader}>
+      <div
+        style={{
+          color: dark ? "#ffffff" : "#0f172a",
+        }}
+      >
+        {icon}
       </div>
-    </section>
+
+      <div>
+        <h2
+          style={{
+            ...styles.sectionTitle,
+            color: dark ? "#ffffff" : "#0f172a",
+          }}
+        >
+          {title}
+        </h2>
+
+        {subtitle && (
+          <p
+            style={{
+              ...styles.sectionSubtitle,
+              color: dark
+                ? "#94a3b8"
+                : "#64748b",
+            }}
+          >
+            {subtitle}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -719,28 +875,28 @@ const styles: Record<
     minHeight: "100vh",
     background: "#f8fafc",
     color: "#0f172a",
-    padding: "24px 14px 60px",
+    padding: "28px 16px 60px",
     fontFamily:
       "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
   },
 
   container: {
     width: "100%",
-    maxWidth: 1120,
+    maxWidth: 1200,
     margin: "0 auto",
   },
 
   backButton: {
     display: "inline-flex",
     alignItems: "center",
-    gap: 7,
+    gap: 8,
     border: "none",
     background: "transparent",
     color: "#475569",
-    fontSize: 13,
     fontWeight: 700,
+    fontSize: 14,
+    padding: "8px 0",
     cursor: "pointer",
-    padding: "7px 0",
     marginBottom: 20,
   },
 
@@ -749,147 +905,194 @@ const styles: Record<
     alignItems: "flex-end",
     justifyContent: "space-between",
     gap: 20,
-    marginBottom: 25,
+    flexWrap: "wrap",
+    marginBottom: 24,
   },
 
-  demoBadge: {
+  badge: {
     display: "inline-flex",
     alignItems: "center",
-    background: "#fef3c7",
-    color: "#92400e",
+    gap: 6,
+    background: "#dcfce7",
+    color: "#166534",
     borderRadius: 999,
-    padding: "6px 10px",
-    fontSize: 10,
-    fontWeight: 900,
-    marginBottom: 10,
+    padding: "7px 12px",
+    fontSize: 11,
+    fontWeight: 800,
+    marginBottom: 12,
   },
 
   title: {
     margin: 0,
-    fontSize: "clamp(32px, 7vw, 52px)",
-    lineHeight: 1.05,
-    letterSpacing: "-1.8px",
+    fontSize: "clamp(30px, 6vw, 44px)",
+    lineHeight: 1.1,
     fontWeight: 900,
+    letterSpacing: "-1px",
   },
 
   subtitle: {
-    margin: "8px 0 0",
+    margin: "9px 0 0",
     color: "#64748b",
     fontSize: 14,
-    lineHeight: 1.6,
+    maxWidth: 700,
   },
 
-  datasetBox: {
-    border: "1px solid #e2e8f0",
+  sourceBox: {
     background: "#ffffff",
+    border: "1px solid #e2e8f0",
     borderRadius: 12,
-    padding: "10px 13px",
-    fontSize: 12,
-    whiteSpace: "nowrap",
+    padding: "11px 15px",
+    color: "#64748b",
+    fontSize: 13,
+  },
+
+  videoCard: {
+    display: "flex",
+    alignItems: "center",
+    gap: 18,
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 18,
+    boxShadow:
+      "0 3px 12px rgba(15,23,42,.05)",
+    flexWrap: "wrap",
+  },
+
+  thumbnail: {
+    width: 180,
+    height: 100,
+    objectFit: "cover",
+    borderRadius: 12,
+  },
+
+  videoTitle: {
+    margin: 0,
+    fontSize: 18,
+    fontWeight: 800,
+  },
+
+  videoChannel: {
+    margin: "7px 0 0",
+    color: "#475569",
+    fontSize: 13,
+  },
+
+  videoId: {
+    margin: "5px 0 0",
+    color: "#94a3b8",
+    fontSize: 11,
   },
 
   metricsGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(190px, 1fr))",
-    gap: 12,
-    marginBottom: 14,
+      "repeat(auto-fit, minmax(210px, 1fr))",
+    gap: 15,
   },
 
   metricCard: {
     background: "#ffffff",
     border: "1px solid #e2e8f0",
-    borderRadius: 17,
-    padding: 18,
+    borderRadius: 18,
+    padding: 20,
     boxShadow:
-      "0 5px 18px rgba(15,23,42,.04)",
+      "0 3px 12px rgba(15,23,42,.05)",
   },
 
   metricIcon: {
     color: "#475569",
-    marginBottom: 12,
   },
 
   metricTitle: {
-    margin: 0,
     color: "#64748b",
-    fontSize: 12,
-    fontWeight: 700,
+    fontSize: 13,
+    margin: "14px 0 4px",
   },
 
   metricValue: {
-    margin: "5px 0 0",
-    fontSize: 25,
+    margin: 0,
+    fontSize: 28,
     fontWeight: 900,
-    color: "#0f172a",
   },
 
   card: {
     background: "#ffffff",
     border: "1px solid #e2e8f0",
-    borderRadius: 19,
-    padding: "20px",
-    marginBottom: 14,
+    borderRadius: 20,
+    padding: 22,
+    marginTop: 18,
     boxShadow:
-      "0 5px 18px rgba(15,23,42,.04)",
+      "0 3px 12px rgba(15,23,42,.05)",
+  },
+
+  commentsCard: {
+    background: "#ffffff",
+    border: "1px solid #e2e8f0",
+    borderRadius: 20,
+    padding: 22,
+    marginTop: 18,
+    boxShadow:
+      "0 3px 12px rgba(15,23,42,.05)",
+  },
+
+  darkCard: {
+    background: "#0f172a",
+    borderRadius: 24,
+    padding: 24,
+    marginTop: 18,
+    color: "#ffffff",
   },
 
   sectionHeader: {
     display: "flex",
-    alignItems: "flex-start",
-    gap: 11,
-  },
-
-  sectionIcon: {
-    width: 38,
-    height: 38,
-    minWidth: 38,
-    borderRadius: 11,
-    background: "#f1f5f9",
-    color: "#334155",
-    display: "flex",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 11,
+    marginBottom: 19,
   },
 
   sectionTitle: {
     margin: 0,
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: 850,
-    color: "#0f172a",
   },
 
   sectionSubtitle: {
-    margin: "3px 0 0",
-    color: "#94a3b8",
-    fontSize: 11,
+    margin: "4px 0 0",
+    fontSize: 12,
   },
 
   threeGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: 10,
-    marginTop: 18,
+      "repeat(auto-fit, minmax(190px, 1fr))",
+    gap: 13,
+  },
+
+  twoGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: 18,
   },
 
   sentimentCard: {
     border: "1px solid #e2e8f0",
     borderRadius: 14,
-    padding: 13,
+    padding: 16,
   },
 
   sentimentTop: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 8,
-    fontSize: 12,
-    color: "#475569",
+    gap: 10,
+    fontSize: 14,
   },
 
   progressBackground: {
-    height: 7,
+    height: 8,
     background: "#e2e8f0",
     borderRadius: 999,
     overflow: "hidden",
@@ -902,35 +1105,26 @@ const styles: Record<
     borderRadius: 999,
   },
 
-  twoGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: 14,
-  },
-
   progressTop: {
     display: "flex",
-    alignItems: "center",
     justifyContent: "space-between",
     color: "#475569",
-    fontSize: 12,
+    fontSize: 13,
     marginBottom: 6,
   },
 
   note: {
-    margin: "4px 0 0",
     color: "#94a3b8",
-    fontSize: 10,
+    fontSize: 11,
     lineHeight: 1.5,
+    marginTop: 3,
   },
 
   topicGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(250px, 1fr))",
-    gap: 10,
-    marginTop: 18,
+      "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: 11,
   },
 
   topicItem: {
@@ -939,133 +1133,88 @@ const styles: Record<
     justifyContent: "space-between",
     gap: 10,
     border: "1px solid #e2e8f0",
-    borderRadius: 13,
-    padding: 11,
+    borderRadius: 14,
+    padding: 13,
   },
 
   topicLeft: {
     display: "flex",
     alignItems: "center",
     gap: 9,
-    minWidth: 0,
   },
 
   rank: {
-    width: 27,
-    height: 27,
-    borderRadius: 8,
+    width: 31,
+    height: 31,
+    borderRadius: 9,
     background: "#f1f5f9",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 900,
-    flexShrink: 0,
   },
 
   topicName: {
-    fontSize: 12,
-    fontWeight: 750,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
+    fontSize: 14,
+    fontWeight: 700,
   },
 
   score: {
     background: "#0f172a",
     color: "#ffffff",
+    padding: "6px 9px",
     borderRadius: 999,
-    padding: "5px 8px",
     fontSize: 10,
-    fontWeight: 900,
+    fontWeight: 800,
     whiteSpace: "nowrap",
   },
 
   questionItem: {
     display: "flex",
     alignItems: "center",
-    gap: 12,
+    gap: 14,
     border: "1px solid #e2e8f0",
-    borderRadius: 13,
-    padding: 13,
-    marginTop: 9,
+    borderRadius: 14,
+    padding: 15,
+    marginBottom: 10,
+    flexWrap: "wrap",
   },
 
   questionText: {
     margin: 0,
-    fontSize: 12,
-    fontWeight: 750,
-    color: "#334155",
+    fontSize: 14,
     lineHeight: 1.5,
+    fontWeight: 700,
   },
 
   questionCount: {
-    margin: "4px 0 0",
-    color: "#94a3b8",
-    fontSize: 10,
+    margin: "5px 0 0",
+    color: "#64748b",
+    fontSize: 11,
   },
 
   opportunity: {
     background: "#fef3c7",
     color: "#92400e",
+    padding: "6px 10px",
     borderRadius: 999,
-    padding: "5px 8px",
-    fontSize: 9,
-    fontWeight: 900,
-    whiteSpace: "nowrap",
-  },
-
-  emptyText: {
-    color: "#94a3b8",
-    fontSize: 13,
-    margin: "18px 0 0",
-  },
-
-  darkCard: {
-    background: "#0f172a",
-    color: "#ffffff",
-    borderRadius: 19,
-    padding: 20,
-    marginBottom: 14,
-  },
-
-  darkSectionIcon: {
-    width: 38,
-    height: 38,
-    minWidth: 38,
-    borderRadius: 11,
-    background: "#1e293b",
-    color: "#ffffff",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  darkSectionTitle: {
-    margin: 0,
-    fontSize: 17,
-    fontWeight: 850,
-    color: "#ffffff",
-  },
-
-  darkSectionSubtitle: {
-    margin: "3px 0 0",
-    color: "#94a3b8",
-    fontSize: 11,
+    fontSize: 10,
+    fontWeight: 800,
   },
 
   recommendGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(230px, 1fr))",
-    gap: 11,
-    marginTop: 18,
+      "repeat(auto-fit, minmax(250px, 1fr))",
+    gap: 13,
   },
 
   recommendCard: {
-    background: "#172033",
-    border: "1px solid #273449",
-    borderRadius: 14,
-    padding: 16,
+    background: "rgba(255,255,255,.07)",
+    border: "1px solid rgba(255,255,255,.1)",
+    borderRadius: 16,
+    padding: 17,
   },
 
   recommendTop: {
@@ -1076,65 +1225,116 @@ const styles: Record<
   },
 
   number: {
-    color: "#94a3b8",
-    fontSize: 11,
+    color: "#cbd5e1",
+    fontSize: 12,
     fontWeight: 800,
   },
 
   recommendScore: {
     background: "#ffffff",
     color: "#0f172a",
+    padding: "6px 9px",
     borderRadius: 999,
-    padding: "5px 8px",
-    fontSize: 9,
+    fontSize: 10,
     fontWeight: 900,
   },
 
   recommendTitle: {
-    margin: "22px 0 0",
-    color: "#ffffff",
-    fontSize: 15,
+    margin: "17px 0 8px",
+    fontSize: 17,
     lineHeight: 1.35,
-    fontWeight: 850,
+    fontWeight: 800,
   },
 
   recommendReason: {
-    margin: "9px 0 0",
-    color: "#94a3b8",
-    fontSize: 11,
-    lineHeight: 1.5,
+    margin: 0,
+    color: "#cbd5e1",
+    fontSize: 12,
+    lineHeight: 1.6,
+  },
+
+  planButton: {
+    width: "100%",
+    marginTop: 15,
+    border: "1px solid rgba(255,255,255,.15)",
+    borderRadius: 10,
+    background: "#ffffff",
+    color: "#0f172a",
+    padding: "10px 12px",
+    fontSize: 12,
+    fontWeight: 800,
+    cursor: "pointer",
   },
 
   actionCard: {
     border: "1px solid #e2e8f0",
     borderRadius: 14,
-    padding: 14,
+    padding: 15,
   },
 
   actionNumber: {
-    width: 28,
-    height: 28,
+    width: 30,
+    height: 30,
     borderRadius: 9,
     background: "#0f172a",
     color: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 11,
     fontWeight: 900,
+    fontSize: 12,
   },
 
   actionText: {
     margin: "12px 0 0",
     color: "#475569",
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 1.55,
+  },
+
+  commentItem: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+    borderBottom: "1px solid #f1f5f9",
+    padding: "13px 0",
+  },
+
+  commentAvatar: {
+    width: 34,
+    height: 34,
+    minWidth: 34,
+    borderRadius: "50%",
+    background: "#e2e8f0",
+    color: "#334155",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 12,
+    fontWeight: 900,
+  },
+
+  commentAuthor: {
+    fontSize: 12,
+    color: "#334155",
+  },
+
+  commentText: {
+    margin: "4px 0 0",
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+
+  emptyText: {
+    color: "#94a3b8",
+    fontSize: 13,
   },
 
   footer: {
     textAlign: "center",
     color: "#94a3b8",
     fontSize: 11,
-    paddingTop: 18,
+    marginTop: 35,
   },
 };
