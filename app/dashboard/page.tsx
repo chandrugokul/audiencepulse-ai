@@ -1114,6 +1114,6 @@ const styles: Record<
   darkEmptyText: {
     color: "#cbd5e1",
     fontSize: 13,
-  }
+  },
 };
 
