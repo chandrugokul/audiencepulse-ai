@@ -1,23 +1,254 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-function analyzeSentiment(text: string) {
+export async function POST(request: Request) {
+  try {
+    const formData = await request.formData();
+
+    const file = formData.get("file");
+
+    if (!(file instanceof File)) {
+      return NextResponse.json(
+        { error: "CSV file is required." },
+        { status: 400 }
+      );
+    }
+
+    const text = await file.text();
+
+    if (!text.trim()) {
+      return NextResponse.json(
+        { error: "CSV file is empty." },
+        { status: 400 }
+      );
+    }
+
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    if (lines.length < 2) {
+      return NextResponse.json(
+        {
+          error:
+            "CSV must contain a header and at least one comment.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const headers = lines[0]
+      .split(",")
+      .map((header) =>
+        header.trim().toLowerCase().replace(/^"|"$/g, "")
+      );
+
+    const commentIndex = headers.indexOf("comment");
+
+    if (commentIndex === -1) {
+      return NextResponse.json(
+        {
+          error:
+            'CSV must contain a column named "comment".',
+        },
+        { status: 400 }
+      );
+    }
+
+    const comments: string[] = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const columns = parseCSVLine(lines[i]);
+
+      const comment = columns[commentIndex]
+        ?.trim()
+        .replace(/^"|"$/g, "");
+
+      if (comment) {
+        comments.push(comment);
+      }
+    }
+
+    if (comments.length === 0) {
+      return NextResponse.json(
+        {
+          error: "No comments were found in the CSV.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const analysis = analyzeComments(comments);
+
+    return NextResponse.json({
+      source: "csv",
+      success: true,
+
+      file: {
+        name: file.name,
+        size: file.size,
+      },
+
+      video: {
+        id: "",
+        title: "CSV Comment Analysis",
+      },
+
+      comments: {
+        total: comments.length,
+        analyzed: comments.length,
+      },
+
+      sentiment: analysis.sentiment,
+
+      languages: analysis.languages,
+
+      countries: [
+        ["Unknown", 100],
+      ],
+
+      topics: analysis.topics,
+
+      questions: analysis.questions,
+
+      recommendations: analysis.recommendations,
+    });
+  } catch (error) {
+    console.error("CSV analysis error:", error);
+
+    return NextResponse.json(
+      {
+        error: "Unable to analyze CSV file.",
+      },
+      { status: 500 }
+    );
+  }
+}
+
+/* ----------------------------------------
+   CSV PARSER
+---------------------------------------- */
+
+function parseCSVLine(line: string): string[] {
+  const result: string[] = [];
+
+  let current = "";
+  let insideQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (
+        insideQuotes &&
+        line[i + 1] === '"'
+      ) {
+        current += '"';
+        i++;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (
+      char === "," &&
+      !insideQuotes
+    ) {
+      result.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  result.push(current);
+
+  return result;
+}
+
+/* ----------------------------------------
+   COMMENT ANALYSIS
+---------------------------------------- */
+
+function analyzeComments(comments: string[]) {
+  let positive = 0;
+  let negative = 0;
+
+  const questions: {
+    text: string;
+    count: number;
+  }[] = [];
+
+  const questionMap = new Map<string, number>();
+
+  const topicKeywords: Record<string, string[]> = {
+    travel: [
+      "travel",
+      "trip",
+      "place",
+      "places",
+      "hotel",
+      "tour",
+      "visit",
+      "เที่ยว",
+    ],
+
+    food: [
+      "food",
+      "restaurant",
+      "eat",
+      "eating",
+      "recipe",
+      "food",
+    ],
+
+    ai: [
+      "ai",
+      "chatgpt",
+      "artificial intelligence",
+      "automation",
+    ],
+
+    technology: [
+      "technology",
+      "tech",
+      "software",
+      "app",
+      "tool",
+      "developer",
+    ],
+
+    finance: [
+      "money",
+      "investment",
+      "invest",
+      "mutual fund",
+      "saving",
+      "finance",
+      "stock",
+    ],
+
+    education: [
+      "learn",
+      "course",
+      "education",
+      "study",
+      "tutorial",
+    ],
+  };
+
+  const topicScores: Record<string, number> = {};
+
   const positiveWords = [
     "good",
     "great",
     "awesome",
-    "amazing",
     "excellent",
     "love",
-    "best",
+    "amazing",
     "helpful",
-    "nice",
+    "best",
     "super",
     "thanks",
     "thank you",
-    "சூப்பர்",
-    "நல்ல",
-    "அருமை",
-    "நன்றி",
   ];
 
   const negativeWords = [
@@ -26,374 +257,104 @@ function analyzeSentiment(text: string) {
     "hate",
     "boring",
     "wrong",
-    "fake",
     "poor",
-    "waste",
+    "useless",
     "disappointed",
-    "not good",
-    "மோசம்",
-    "பிடிக்கவில்லை",
   ];
 
-  const lower = text.toLowerCase();
+  for (const comment of comments) {
+    const lower = comment.toLowerCase();
 
-  const positive = positiveWords.some((word) =>
-    lower.includes(word)
-  );
-
-  const negative = negativeWords.some((word) =>
-    lower.includes(word)
-  );
-
-  if (positive && !negative) return "positive";
-  if (negative && !positive) return "negative";
-
-  return "neutral";
-}
-
-function detectLanguage(text: string) {
-  const tamil = /[\u0B80-\u0BFF]/.test(text);
-  const hindi = /[\u0900-\u097F]/.test(text);
-
-  if (tamil && /[a-zA-Z]/.test(text)) {
-    return "Tamil + English";
-  }
-
-  if (tamil) {
-    return "Tamil";
-  }
-
-  if (hindi && /[a-zA-Z]/.test(text)) {
-    return "Hindi + English";
-  }
-
-  if (hindi) {
-    return "Hindi";
-  }
-
-  if (/[a-zA-Z]/.test(text)) {
-    return "English";
-  }
-
-  return "Other";
-}
-
-function parseCSV(csv: string) {
-  const lines = csv
-    .split(/\r?\n/)
-    .filter((line) => line.trim());
-
-  if (lines.length < 2) {
-    return [];
-  }
-
-  const headers = lines[0]
-    .split(",")
-    .map((header) =>
-      header
-        .trim()
-        .replace(/^"|"$/g, "")
-        .toLowerCase()
-    );
-
-  const commentIndex = headers.findIndex(
-    (header) =>
-      header === "comment" ||
-      header === "comments" ||
-      header === "text"
-  );
-
-  if (commentIndex === -1) {
-    throw new Error(
-      'CSV must contain a "comment" column.'
-    );
-  }
-
-  const rows: string[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const columns = lines[i]
-      .split(",")
-      .map((value) =>
-        value.trim().replace(/^"|"$/g, "")
-      );
-
-    const comment = columns[commentIndex];
-
-    if (comment) {
-      rows.push(comment);
+    for (const word of positiveWords) {
+      if (lower.includes(word)) {
+        positive++;
+        break;
+      }
     }
-  }
 
-  return rows;
-}
-
-export async function POST(
-  request: NextRequest
-) {
-  try {
-    const formData = await request.formData();
-
-    const file = formData.get("file");
-
-    if (!(file instanceof File)) {
-      return NextResponse.json(
-        {
-          error: "Please upload a CSV file.",
-        },
-        { status: 400 }
-      );
+    for (const word of negativeWords) {
+      if (lower.includes(word)) {
+        negative++;
+        break;
+      }
     }
 
     if (
-      !file.name
-        .toLowerCase()
-        .endsWith(".csv")
+      lower.includes("?") ||
+      lower.startsWith("how ") ||
+      lower.startsWith("what ") ||
+      lower.startsWith("where ") ||
+      lower.startsWith("which ") ||
+      lower.startsWith("can ")
     ) {
-      return NextResponse.json(
-        {
-          error: "Only CSV files are supported.",
-        },
-        { status: 400 }
+      const cleanQuestion = comment.trim();
+
+      questionMap.set(
+        cleanQuestion,
+        (questionMap.get(cleanQuestion) || 0) + 1
       );
     }
 
-    const csvText = await file.text();
+    for (const [topic, keywords] of Object.entries(
+      topicKeywords
+    )) {
+      for (const keyword of keywords) {
+        if (lower.includes(keyword)) {
+          topicScores[topic] =
+            (topicScores[topic] || 0) + 1;
 
-    const comments = parseCSV(csvText);
-
-    if (!comments.length) {
-      return NextResponse.json(
-        {
-          error:
-            "No comments found. Make sure your CSV contains a comment column.",
-        },
-        { status: 400 }
-      );
-    }
-
-    // --------------------------------
-    // SENTIMENT
-    // --------------------------------
-
-    let positive = 0;
-    let negative = 0;
-    let neutral = 0;
-
-    const sentimentComments = comments.map(
-      (comment) => {
-        const sentiment =
-          analyzeSentiment(comment);
-
-        if (sentiment === "positive") positive++;
-        if (sentiment === "negative") negative++;
-        if (sentiment === "neutral") neutral++;
-
-        return {
-          text: comment,
-          sentiment,
-        };
+          break;
+        }
       }
-    );
+    }
+  }
 
-    const total = comments.length;
+  const total = comments.length;
 
-    const positivePercent = Math.round(
-      (positive / total) * 100
-    );
+  const positivePercent = Math.round(
+    (positive / total) * 100
+  );
 
-    const negativePercent = Math.round(
-      (negative / total) * 100
-    );
+  const negativePercent = Math.round(
+    (negative / total) * 100
+  );
 
-    const neutralPercent =
-      100 -
-      positivePercent -
-      negativePercent;
+  const neutralPercent = Math.max(
+    0,
+    100 - positivePercent - negativePercent
+  );
 
-    // --------------------------------
-    // LANGUAGE
-    // --------------------------------
+  const sentiment = {
+    positive: positivePercent,
+    neutral: neutralPercent,
+    negative: negativePercent,
+  };
 
-    const languageCounts: Record<
-      string,
-      number
-    > = {};
-
-    comments.forEach((comment) => {
-      const language =
-        detectLanguage(comment);
-
-      languageCounts[language] =
-        (languageCounts[language] || 0) + 1;
-    });
-
-    const languages = Object.entries(
-      languageCounts
-    )
-      .map(([name, count]) => [
-        name,
-        Math.round((count / total) * 100),
-      ] as [string, number])
-      .sort((a, b) => b[1] - a[1]);
-
-    // --------------------------------
-    // QUESTIONS
-    // --------------------------------
-
-    const questionCounts: Record<
-      string,
-      number
-    > = {};
-
-    comments.forEach((comment) => {
-      const trimmed = comment.trim();
-
-      if (
-        trimmed.includes("?") ||
-        /^(how|what|why|when|where|which|can|is|are|எப்படி|என்ன|எங்கே|ஏன்)/i.test(
-          trimmed
+  const topics = Object.entries(topicScores)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([topic, count]) => [
+      formatTopic(topic),
+      Math.min(
+        99,
+        Math.max(
+          40,
+          Math.round((count / total) * 100)
         )
-      ) {
-        questionCounts[trimmed] =
-          (questionCounts[trimmed] || 0) + 1;
-      }
-    });
+      ),
+    ] as [string, number]);
 
-    const questions = Object.entries(
-      questionCounts
-    )
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10);
-
-    // --------------------------------
-    // TOPIC / WORD FREQUENCY
-    // --------------------------------
-
-    const stopWords = new Set([
-      "the",
-      "this",
-      "that",
-      "with",
-      "from",
-      "your",
-      "you",
-      "have",
-      "very",
-      "just",
-      "for",
-      "and",
-      "are",
-      "was",
-      "but",
-      "not",
-      "what",
-      "how",
-      "can",
-      "இது",
-      "அது",
-      "என்று",
-      "மற்றும்",
-    ]);
-
-    const wordCounts: Record<
-      string,
-      number
-    > = {};
-
-    comments.forEach((comment) => {
-      const words = comment
-        .toLowerCase()
-        .replace(/[^\p{L}\p{N}\s]/gu, " ")
-        .split(/\s+/)
-        .filter(
-          (word) =>
-            word.length >= 3 &&
-            !stopWords.has(word)
-        );
-
-      words.forEach((word) => {
-        wordCounts[word] =
-          (wordCounts[word] || 0) + 1;
-      });
-    });
-
-    const topWords = Object.entries(
-      wordCounts
-    )
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10);
-
-    const topics = topWords.map(
-      ([word, count]) => {
-        const score = Math.min(
-          100,
-          Math.max(
-            50,
-            count * 10
-          )
-        );
-
-        return [word, score] as [
-          string,
-          number
-        ];
-      }
-    );
-
-    // --------------------------------
-    // RETURN
-    // --------------------------------
-
-    return NextResponse.json({
-      success: true,
-
-      source: "csv",
-
-      demo: false,
-
-      file: {
-        name: file.name,
-        size: file.size,
-      },
-
-      statistics: {
-        commentsAnalyzed: total,
-      },
-
-      analysis: {
-        commentsAnalyzed: total,
-
-        sentiment: {
-          positive: positivePercent,
-          neutral: neutralPercent,
-          negative: negativePercent,
-        },
-
-        languages,
-
-        questions,
-
-        topics,
-
-        comments:
-          sentimentComments.slice(0, 1000),
-      },
-    });
-  } catch (error) {
-    console.error(
-      "CSV analysis error:",
-      error
-    );
-
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to analyze CSV.",
-      },
-      { status: 500 }
+  if (topics.length === 0) {
+    topics.push(
+      ["General Discussion", 50],
+      ["Audience Feedback", 45]
     );
   }
-}
+
+  const topQuestions = Array.from(
+    questionMap.entries()
+  )
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([text, count]) => ({
+      text,
