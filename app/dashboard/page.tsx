@@ -1,186 +1,269 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 
 type CommentItem = {
-  text?: string;
-  comment?: string;
-  author?: string;
-  authorName?: string;
+  text: string;
+  author: string;
 };
 
-type Recommendation = {
-  number: number;
-  title: string;
-  reason: string;
-  score: number;
+type AnalysisData = {
+  source?: string;
+  commentsAnalyzed?: number;
+  sentiment?: {
+    positive?: number;
+    neutral?: number;
+    negative?: number;
+  };
+  comments?: string[] | CommentItem[];
 };
 
 type DashboardData = {
+  total: number;
+  positive: number;
+  neutral: number;
+  negative: number;
   comments: CommentItem[];
-  commentsAnalyzed: number;
-  sentimentScore: number;
-  sentiment: string;
   topics: [string, number][];
   questions: [string, number][];
   languages: [string, number][];
-  recommendations: Recommendation[];
+  recommendations: {
+    title: string;
+    score: number;
+    reason: string;
+  }[];
 };
 
-function FeatureCard({
-  title,
-  value,
-  description,
-}: {
-  title: string;
-  value: string;
-  description: string;
-}) {
-  return (
-    <div style={styles.statCard}>
-      <div style={styles.statTitle}>{title}</div>
-      <div style={styles.statValue}>{value}</div>
-      <div style={styles.statDescription}>
-        {description}
-      </div>
-    </div>
-  );
+function normalizeComments(
+  comments: string[] | CommentItem[] | undefined
+): CommentItem[] {
+  if (!Array.isArray(comments)) {
+    return [];
+  }
+
+  return comments
+    .map((comment, index) => {
+      if (typeof comment === "string") {
+        return {
+          text: comment,
+          author: "Viewer",
+        };
+      }
+
+      return {
+        text: comment.text || "",
+        author: comment.author || `Viewer ${index + 1}`,
+      };
+    })
+    .filter((comment) => comment.text.trim().length > 0);
 }
 
-function SectionTitle({
-  title,
-  subtitle,
-}: {
-  title: string;
-  subtitle: string;
-}) {
-  return (
-    <div style={styles.sectionHeader}>
-      <h2 style={styles.sectionTitle}>{title}</h2>
-      <p style={styles.sectionSubtitle}>{subtitle}</p>
-    </div>
+function containsAny(text: string, words: string[]) {
+  const lower = text.toLowerCase();
+
+  return words.some((word) =>
+    lower.includes(word.toLowerCase())
   );
 }
 
 function buildDashboardData(
-  analysis: any
+  analysis: AnalysisData
 ): DashboardData {
-  const comments: CommentItem[] =
-    Array.isArray(analysis?.comments)
-      ? analysis.comments
-      : [];
+  const comments = normalizeComments(analysis.comments);
 
-  const commentsAnalyzed =
-    Number(
-      analysis?.commentsAnalyzed
-    ) || comments.length;
+  const total =
+    analysis.commentsAnalyzed || comments.length;
 
-  const rawScore =
-    Number(
-      analysis?.sentimentScore
+  const positive = analysis.sentiment?.positive ?? 0;
+  const neutral = analysis.sentiment?.neutral ?? 0;
+  const negative = analysis.sentiment?.negative ?? 0;
+
+  const topicWords: Record<string, string[]> = {
+    Investing: [
+      "invest",
+      "investment",
+      "investing",
+      "முதலீடு",
+      "निवेश",
+    ],
+    "Mutual Funds": [
+      "mutual fund",
+      "mutual funds",
+      "mf",
+      "மியூச்சுவல்",
+      "म्यूचुअल",
+    ],
+    Savings: [
+      "save",
+      "saving",
+      "savings",
+      "சேமிப்பு",
+      "बचत",
+    ],
+    Budgeting: [
+      "budget",
+      "budgeting",
+      "செலவு",
+      "பட்ஜெட்",
+      "बजट",
+    ],
+    "Personal Finance": [
+      "finance",
+      "financial",
+      "money",
+      "salary",
+      "பணம்",
+      "நிதி",
+      "पैसा",
+    ],
+  };
+
+  const topicCounts: Record<string, number> = {};
+
+  for (const [topic, words] of Object.entries(topicWords)) {
+    const count = comments.filter((comment) =>
+      containsAny(comment.text, words)
+    ).length;
+
+    if (count > 0) {
+      topicCounts[topic] = count;
+    }
+  }
+
+  const topics: [string, number][] = Object.entries(
+    topicCounts
+  )
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([topic, count]) => [
+      topic,
+      Math.min(
+        99,
+        Math.max(
+          55,
+          Math.round((count / Math.max(1, total)) * 100) +
+            45
+        )
+      ),
+    ]);
+
+  const questionComments = comments.filter((comment) => {
+    const text = comment.text.trim().toLowerCase();
+
+    return (
+      text.includes("?") ||
+      text.startsWith("how ") ||
+      text.startsWith("what ") ||
+      text.startsWith("which ") ||
+      text.startsWith("when ") ||
+      text.startsWith("why ") ||
+      text.includes("எப்படி") ||
+      text.includes("என்ன") ||
+      text.includes("எது") ||
+      text.includes("எப்போது") ||
+      text.includes("कैसे") ||
+      text.includes("क्या")
     );
+  });
 
-  const sentimentScore = Number.isFinite(rawScore)
-    ? Math.max(0, Math.min(100, rawScore))
-    : 50;
+  const questionMap = new Map<string, number>();
 
-  const sentiment =
-    typeof analysis?.sentiment === "string"
-      ? analysis.sentiment
-      : sentimentScore >= 60
-        ? "Positive"
-        : sentimentScore <= 40
-          ? "Negative"
-          : "Neutral";
+  for (const comment of questionComments) {
+    const cleanQuestion = comment.text
+      .replace(/\s+/g, " ")
+      .trim();
 
-  const topics: [string, number][] =
-    Array.isArray(analysis?.topics)
-      ? analysis.topics
-          .filter(
-            (item: any) =>
-              Array.isArray(item) &&
-              item.length >= 2
-          )
-          .map(
-            (item: any) =>
-              [
-                String(item[0]),
-                Number(item[1]) || 0,
-              ] as [string, number]
-          )
-          .slice(0, 12)
-      : [];
+    if (cleanQuestion.length >= 8) {
+      questionMap.set(
+        cleanQuestion,
+        (questionMap.get(cleanQuestion) || 0) + 1
+      );
+    }
+  }
 
-  const questions: [string, number][] =
-    Array.isArray(analysis?.questions)
-      ? analysis.questions
-          .filter(
-            (item: any) =>
-              Array.isArray(item) &&
-              item.length >= 2
-          )
-          .map(
-            (item: any) =>
-              [
-                String(item[0]),
-                Number(item[1]) || 0,
-              ] as [string, number]
-          )
-          .slice(0, 12)
-      : [];
+  const questions: [string, number][] = Array.from(
+    questionMap.entries()
+  )
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const tamilHits = comments.filter((comment) =>
+    /[\u0B80-\u0BFF]/.test(comment.text)
+  ).length;
+
+  const hindiHits = comments.filter((comment) =>
+    /[\u0900-\u097F]/.test(comment.text)
+  ).length;
+
+  const englishHits = comments.filter((comment) =>
+    /[a-zA-Z]/.test(comment.text)
+  ).length;
+
+  const languageTotal =
+    tamilHits + hindiHits + englishHits;
 
   const languages: [string, number][] =
-    Array.isArray(analysis?.languages)
-      ? analysis.languages
-          .filter(
-            (item: any) =>
-              Array.isArray(item) &&
-              item.length >= 2
-          )
-          .map(
-            (item: any) =>
-              [
-                String(item[0]),
-                Number(item[1]) || 0,
-              ] as [string, number]
-          )
-          .slice(0, 10)
+    languageTotal > 0
+      ? [
+          [
+            "Tamil",
+            Math.round(
+              (tamilHits / languageTotal) * 100
+            ),
+          ],
+          [
+            "Hindi",
+            Math.round(
+              (hindiHits / languageTotal) * 100
+            ),
+          ],
+          [
+            "English",
+            Math.round(
+              (englishHits / languageTotal) * 100
+            ),
+          ],
+        ]
+          .filter((item) => item[1] > 0)
+          .sort((a, b) => b[1] - a[1])
       : [];
 
-  const recommendations: Recommendation[] =
-    Array.isArray(analysis?.recommendations)
-      ? analysis.recommendations
-          .map((item: any, index: number) => ({
-            number:
-              Number(item?.number) || index + 1,
-            title:
-              String(
-                item?.title ||
-                  item?.topic ||
-                  "New content opportunity"
-              ),
-            reason:
-              String(
-                item?.reason ||
-                  "Audience interest detected from comments."
-              ),
-            score:
-              Math.max(
-                0,
-                Math.min(
-                  100,
-                  Number(item?.score) || 0
-                )
-              ),
-          }))
-          .slice(0, 6)
-      : [];
+  const recommendations = [
+    {
+      title: "Create a follow-up video",
+      score: Math.min(
+        98,
+        70 + Math.round(positive / 5)
+      ),
+      reason:
+        "Build on the strongest positive audience response and answer the most common questions.",
+    },
+    {
+      title: "Answer repeated audience questions",
+      score: Math.min(
+        95,
+        65 + questions.length * 5
+      ),
+      reason:
+        "Turn recurring viewer questions into a focused educational video.",
+    },
+    {
+      title: "Create a beginner-friendly guide",
+      score: Math.min(
+        92,
+        60 + topics.length * 5
+      ),
+      reason:
+        "Use the strongest audience topics to create simple, practical content.",
+    },
+  ];
 
   return {
+    total,
+    positive,
+    neutral,
+    negative,
     comments,
-    commentsAnalyzed,
-    sentimentScore,
-    sentiment,
     topics,
     questions,
     languages,
@@ -189,349 +272,315 @@ function buildDashboardData(
 }
 
 export default function DashboardPage() {
-  const [analysis, setAnalysis] =
-    useState<any>(null);
+  const analysis: AnalysisData = {
+    commentsAnalyzed: 0,
+    sentiment: {
+      positive: 0,
+      neutral: 100,
+      negative: 0,
+    },
+    comments: [],
+  };
 
-  useEffect(() => {
-    const stored =
-      sessionStorage.getItem(
-        "audiencepulse-analysis"
-      );
-
-    if (!stored) {
-      return;
-    }
-
-    try {
-      setAnalysis(JSON.parse(stored));
-    } catch {
-      setAnalysis(null);
-    }
-  }, []);
-
-  if (!analysis) {
-    return (
-      <main style={styles.page}>
-        <div style={styles.emptyPage}>
-          <h1 style={styles.heroTitle}>
-            AudiencePulse AI
-          </h1>
-
-          <p style={styles.sectionSubtitle}>
-            No analysis data found.
-          </p>
-
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = "/";
-            }}
-            style={styles.primaryButton}
-          >
-            Go Back
-          </button>
-        </div>
-      </main>
-    );
-  }
-
-  const data =
-    buildDashboardData(analysis);
+  const data = useMemo(
+    () => buildDashboardData(analysis),
+    [analysis.comments, analysis.commentsAnalyzed]
+  );
 
   return (
-    <main style={styles.page}>
-      <div style={styles.container}>
-
-        <header style={styles.header}>
-
-          <button
-            type="button"
-            onClick={() => {
-              window.location.href = "/";
+    <main
+      style={{
+        minHeight: "100vh",
+        background: "#f8fafc",
+        color: "#0f172a",
+        fontFamily:
+          "Arial, Helvetica, sans-serif",
+        padding: 24,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 1100,
+          margin: "0 auto",
+        }}
+      >
+        <header
+          style={{
+            marginBottom: 24,
+          }}
+        >
+          <h1
+            style={{
+              margin: 0,
+              fontSize: 32,
+              fontWeight: 800,
             }}
-            style={styles.backButton}
           >
-            ← New Analysis
-          </button>
-
-          <div style={styles.badge}>
-            ✨ Audience Intelligence
-          </div>
-
-          <h1 style={styles.heroTitle}>
-            AudiencePulse AI
+            Audience Intelligence
           </h1>
 
-          <p style={styles.heroText}>
-            Your audience intelligence dashboard
+          <p
+            style={{
+              margin: "8px 0 0",
+              color: "#64748b",
+              fontSize: 14,
+            }}
+          >
+            AudiencePulse AI dashboard
           </p>
-
         </header>
-
-        {analysis?.video && (
-          <section style={styles.videoCard}>
-
-            {analysis.video.thumbnail && (
-              <img
-                src={analysis.video.thumbnail}
-                alt={
-                  analysis.video.title ||
-                  "YouTube video"
-                }
-                style={styles.thumbnail}
-              />
-            )}
-
-            <div style={styles.videoInfo}>
-
-              <div style={styles.videoLabel}>
-                YOUTUBE VIDEO
-              </div>
-
-              <h2 style={styles.videoTitle}>
-                {analysis.video.title ||
-                  "YouTube Video"}
-              </h2>
-
-              {analysis.video.channelTitle && (
-                <p style={styles.videoChannel}>
-                  {analysis.video.channelTitle}
-                </p>
-              )}
-
-            </div>
-
-          </section>
-        )}
-
-        <section style={styles.statsGrid}>
-
-          <FeatureCard
-            title="COMMENTS ANALYZED"
-            value={String(
-              data.commentsAnalyzed
-            )}
-            description="Audience comments processed"
+<section
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "repeat(auto-fit, minmax(180px, 1fr))",
+            gap: 14,
+            marginBottom: 20,
+          }}
+        >
+          <StatCard
+            title="Comments Analyzed"
+            value={data.total.toLocaleString()}
+            icon="💬"
           />
 
-          <FeatureCard
-            title="SENTIMENT"
-            value={`${data.sentimentScore}%`}
-            description={data.sentiment}
+          <StatCard
+            title="Positive"
+            value={`${data.positive}%`}
+            icon="😊"
           />
 
-          <FeatureCard
-            title="TOP TOPICS"
-            value={String(
-              data.topics.length
-            )}
-            description="Audience discussion topics"
+          <StatCard
+            title="Neutral"
+            value={`${data.neutral}%`}
+            icon="😐"
           />
 
-          <FeatureCard
-            title="QUESTIONS"
-            value={String(
-              data.questions.length
-            )}
-            description="Questions detected"
+          <StatCard
+            title="Negative"
+            value={`${data.negative}%`}
+            icon="☹️"
           />
-
         </section>
 
-        <section style={styles.section}>
-
+        <section style={styles.card}>
           <SectionTitle
-            title="Audience Sentiment"
+            title="Sentiment Analysis"
             subtitle="Overall emotional signal from the comments"
           />
 
-          <div style={styles.sentimentCard}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(180px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <SentimentBar
+              label="Positive"
+              value={data.positive}
+              icon="😊"
+            />
 
-            <div style={styles.sentimentScore}>
-              {data.sentimentScore}%
-            </div>
+            <SentimentBar
+              label="Neutral"
+              value={data.neutral}
+              icon="😐"
+            />
 
-            <div style={styles.sentimentContent}>
-
-              <div style={styles.sentimentLabel}>
-                {data.sentiment}
-              </div>
-
-              <div
-                style={
-                  styles.progressBackground
-                }
-              >
-                <div
-                  style={{
-                    ...styles.progressBar,
-                    width:
-                      `${data.sentimentScore}%`,
-                  }}
-                />
-              </div>
-
-              <p style={styles.sentimentText}>
-                Based on audience comments
-                processed by AudiencePulse AI.
-              </p>
-
-            </div>
-
+            <SentimentBar
+              label="Negative"
+              value={data.negative}
+              icon="☹️"
+            />
           </div>
 
+          <p style={styles.note}>
+            Based on audience comments processed by
+            AudiencePulse AI.
+          </p>
         </section>
 
-        <section style={styles.section}>
-
+        <section style={styles.card}>
           <SectionTitle
             title="Top Audience Topics"
             subtitle="Topics appearing most frequently in comments"
           />
 
-          {data.topics.length > 0 ? (
+          {data.topics.length === 0 ? (
+            <p style={styles.emptyText}>
+              No topics detected yet.
+            </p>
+          ) : (
             <div style={styles.topicGrid}>
-
               {data.topics.map(
-                ([topic, count], index) => (
+                ([topic, score], index) => (
                   <div
-                    key={`${topic}-${index}`}
+                    key={topic}
                     style={styles.topicItem}
                   >
-
                     <div style={styles.topicLeft}>
-
                       <div style={styles.rank}>
-                        #{index + 1}
+                        {index + 1}
                       </div>
 
                       <div style={styles.topicName}>
                         {topic}
                       </div>
-
                     </div>
 
                     <div style={styles.score}>
-                      {count} mentions
+                      {score}/100
                     </div>
-
                   </div>
                 )
               )}
-
             </div>
-          ) : (
-            <p style={styles.emptyText}>
-              No topics detected yet.
-            </p>
           )}
-
         </section>
-        <section style={styles.section}>
 
+        <section style={styles.card}>
           <SectionTitle
             title="Audience Questions"
             subtitle="Questions your viewers are asking"
           />
 
-          {data.questions.length > 0 ? (
+          {data.questions.length === 0 ? (
+            <p style={styles.emptyText}>
+              No questions detected.
+            </p>
+          ) : (
             <div>
-
               {data.questions.map(
                 ([question, count], index) => (
                   <div
                     key={`${question}-${index}`}
                     style={styles.questionItem}
                   >
+                    <div style={styles.questionNumber}>
+                      {index + 1}
+                    </div>
 
-                    <div style={styles.questionContent}>
-
+                    <div
+                      style={styles.questionContent}
+                    >
                       <p style={styles.questionText}>
                         {question}
                       </p>
 
-                      <p style={styles.questionCount}>
-                        {count} mention(s)
+                      <p
+                        style={styles.questionCount}
+                      >
+                        Asked {count}{" "}
+                        {count === 1
+                          ? "time"
+                          : "times"}
                       </p>
-
                     </div>
 
-                    <div style={styles.opportunity}>
-                      Content Opportunity
-                    </div>
-
+                    <span
+                      style={styles.opportunity}
+                    >
+                      Opportunity
+                    </span>
                   </div>
                 )
               )}
-
             </div>
-          ) : (
-            <p style={styles.emptyText}>
-              No questions detected.
-            </p>
           )}
-
         </section>
 
-        <section style={styles.section}>
-
+        <section style={styles.card}>
           <SectionTitle
             title="Language Signals"
             subtitle="Languages detected in your audience"
           />
 
-          {data.languages.length > 0 ? (
-            <div style={styles.languageGrid}>
-
-              {data.languages.map(
-                ([language, count]) => (
-                  <div
-                    key={language}
-                    style={styles.languageCard}
-                  >
-
-                    <div style={styles.languageName}>
-                      {language}
-                    </div>
-
-                    <div style={styles.languageCount}>
-                      {count} comments
-                    </div>
-
-                  </div>
-                )
-              )}
-
-            </div>
-          ) : (
+          {data.languages.length === 0 ? (
             <p style={styles.emptyText}>
               No language data available.
             </p>
-          )}
+          ) : (
+            <div>
+              {data.languages.map(
+                ([language, percentage]) => (
+                  <div
+                    key={language}
+                    style={{
+                      marginBottom: 15,
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent:
+                          "space-between",
+                        marginBottom: 6,
+                        fontSize: 12,
+                        fontWeight: 700,
+                      }}
+                    >
+                      <span>{language}</span>
+                      <span>
+                        {percentage}%
+                      </span>
+                    </div>
 
+                    <div
+                      style={{
+                        height: 7,
+                        background: "#e2e8f0",
+                        borderRadius: 999,
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${percentage}%`,
+                          height: "100%",
+                          background: "#0f172a",
+                          borderRadius: 999,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          )}
         </section>
 
-        <section style={styles.darkSection}>
-
+        <section
+          style={{
+            ...styles.darkCard,
+            marginBottom: 20,
+          }}
+        >
           <SectionTitle
             title="Next Video Opportunities"
             subtitle="Content ideas generated from audience demand"
+            dark
           />
 
-          {data.recommendations.length > 0 ? (
+          {data.recommendations.length === 0 ? (
+            <p style={styles.darkEmptyText}>
+              Not enough audience data to generate
+              recommendations.
+            </p>
+          ) : (
             <div style={styles.recommendGrid}>
-
               {data.recommendations.map(
-                (item) => (
+                (recommendation, index) => (
                   <div
-                    key={`${item.number}-${item.title}`}
+                    key={recommendation.title}
                     style={styles.recommendCard}
                   >
-
-                    <div style={styles.recommendTop}>
-
+                    <div
+                      style={styles.recommendTop}
+                    >
                       <span style={styles.number}>
-                        #{item.number}
+                        #{index + 1}
                       </span>
 
                       <span
@@ -539,9 +588,8 @@ export default function DashboardPage() {
                           styles.recommendScore
                         }
                       >
-                        {item.score}% demand
+                        {recommendation.score}/100
                       </span>
-
                     </div>
 
                     <h3
@@ -549,7 +597,7 @@ export default function DashboardPage() {
                         styles.recommendTitle
                       }
                     >
-                      {item.title}
+                      {recommendation.title}
                     </h3>
 
                     <p
@@ -557,7 +605,7 @@ export default function DashboardPage() {
                         styles.recommendReason
                       }
                     >
-                      {item.reason}
+                      {recommendation.reason}
                     </p>
 
                     <button
@@ -565,154 +613,268 @@ export default function DashboardPage() {
                       style={styles.planButton}
                       onClick={() => {
                         alert(
-                          `Content idea: ${item.title}`
+                          `Content idea selected: ${recommendation.title}`
                         );
                       }}
                     >
                       Plan This Video
                     </button>
-
                   </div>
                 )
               )}
-
             </div>
-          ) : (
-            <p style={styles.darkEmptyText}>
-              Not enough audience data to generate
-              recommendations.
-            </p>
           )}
-
         </section>
 
-        <section style={styles.section}>
-
+        <section style={styles.card}>
           <SectionTitle
             title="Audience Action Plan"
             subtitle="Simple next steps based on the analysis"
           />
 
-          <div style={styles.actionGrid}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns:
+                "repeat(auto-fit, minmax(220px, 1fr))",
+              gap: 12,
+            }}
+          >
+            <ActionCard
+              number="1"
+              text={
+                data.topics.length > 0
+                  ? `Focus your next video on ${data.topics[0][0]}.`
+                  : "Focus your next video on the highest demand topic."
+              }
+            />
 
-            <div style={styles.actionCard}>
-              <div style={styles.actionNumber}>
-                1
-              </div>
+            <ActionCard
+              number="2"
+              text={
+                data.questions.length > 0
+                  ? "Answer the repeated audience questions directly in your content."
+                  : "Answer repeated audience questions directly in your content."
+              }
+            />
 
-              <p style={styles.actionText}>
-                Focus your next video on the highest
-                demand topic.
-              </p>
-            </div>
-
-            <div style={styles.actionCard}>
-              <div style={styles.actionNumber}>
-                2
-              </div>
-
-              <p style={styles.actionText}>
-                Answer repeated audience questions
-                directly in your content.
-              </p>
-            </div>
-
-            <div style={styles.actionCard}>
-              <div style={styles.actionNumber}>
-                3
-              </div>
-
-              <p style={styles.actionText}>
-                Use audience language signals to
-                improve titles and descriptions.
-              </p>
-            </div>
-
+            <ActionCard
+              number="3"
+              text={
+                data.languages.length > 0
+                  ? `Use ${data.languages[0][0]} audience language signals to improve titles and descriptions.`
+                  : "Use audience language signals to improve titles and descriptions."
+              }
+            />
           </div>
-
         </section>
 
-        <section style={styles.section}>
-
+        <section style={styles.card}>
           <SectionTitle
             title="Sample Audience Comments"
             subtitle="Comments used for this analysis"
           />
 
-          {data.comments.length > 0 ? (
-            <div>
-
-              {data.comments
-                .slice(0, 20)
-                .map(
-                  (comment, index) => {
-
-                    const text =
-                      comment?.text ||
-                      comment?.comment ||
-                      "";
-
-                    const author =
-                      comment?.author ||
-                      comment?.authorName ||
-                      "Viewer";
-
-                    return (
-                      <div
-                        key={index}
-                        style={styles.commentItem}
-                      >
-
-                        <div
-                          style={
-                            styles.commentAvatar
-                          }
-                        >
-                          {String(author)
-                            .charAt(0)
-                            .toUpperCase()}
-                        </div>
-
-                        <div>
-
-                          <strong
-                            style={
-                              styles.commentAuthor
-                            }
-                          >
-                            {author}
-                          </strong>
-
-                          <p
-                            style={
-                              styles.commentText
-                            }
-                          >
-                            {text}
-                          </p>
-
-                        </div>
-
-                      </div>
-                    );
-                  }
-                )}
-
-            </div>
-          ) : (
+          {data.comments.length === 0 ? (
             <p style={styles.emptyText}>
-              No comments available.
+              No audience comments available.
             </p>
+          ) : (
+            <div>
+              {data.comments
+                .slice(0, 30)
+                .map((comment, index) => (
+                  <div
+                    key={`${comment.text}-${index}`}
+                    style={styles.commentItem}
+                  >
+                    <div
+                      style={styles.commentAvatar}
+                    >
+                      {comment.author
+                        .charAt(0)
+                        .toUpperCase()}
+                    </div>
+
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                      }}
+                    >
+                      <div
+                        style={styles.commentAuthor}
+                      >
+                        {comment.author}
+                      </div>
+
+                      <p
+                        style={styles.commentText}
+                      >
+                        {comment.text}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+            </div>
           )}
-
         </section>
-
-        <footer style={styles.footer}>
+<footer
+          style={{
+            textAlign: "center",
+            color: "#94a3b8",
+            fontSize: 11,
+            padding: "10px 0 30px",
+          }}
+        >
           AudiencePulse AI • POC
         </footer>
-
       </div>
     </main>
+  );
+}
+
+function StatCard({
+  title,
+  value,
+  icon,
+}: {
+  title: string;
+  value: string;
+  icon: string;
+}) {
+  return (
+    <div style={styles.statCard}>
+      <div style={styles.statIcon}>{icon}</div>
+
+      <div>
+        <div style={styles.statValue}>{value}</div>
+
+        <div style={styles.statTitle}>{title}</div>
+      </div>
+    </div>
+  );
+}
+
+function SentimentBar({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: string;
+}) {
+  return (
+    <div
+      style={{
+        border: "1px solid #e2e8f0",
+        borderRadius: 14,
+        padding: 15,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 10,
+          marginBottom: 10,
+        }}
+      >
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 800,
+          }}
+        >
+          {icon} {label}
+        </span>
+
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 900,
+          }}
+        >
+          {value}%
+        </span>
+      </div>
+
+      <div
+        style={{
+          height: 8,
+          background: "#e2e8f0",
+          borderRadius: 999,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            width: `${Math.max(
+              0,
+              Math.min(100, value)
+            )}%`,
+            height: "100%",
+            background: "#0f172a",
+            borderRadius: 999,
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({
+  title,
+  subtitle,
+  dark = false,
+}: {
+  title: string;
+  subtitle: string;
+  dark?: boolean;
+}) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <h2
+        style={{
+          margin: 0,
+          fontSize: 18,
+          fontWeight: 800,
+          color: dark ? "#ffffff" : "#0f172a",
+        }}
+      >
+        {title}
+      </h2>
+
+      <p
+        style={{
+          margin: "5px 0 0",
+          fontSize: 11,
+          color: dark ? "#94a3b8" : "#64748b",
+        }}
+      >
+        {subtitle}
+      </p>
+    </div>
+  );
+}
+
+function ActionCard({
+  number,
+  text,
+}: {
+  number: string;
+  text: string;
+}) {
+  return (
+    <div style={styles.actionCard}>
+      <div style={styles.actionNumber}>
+        {number}
+      </div>
+
+      <p style={styles.actionText}>{text}</p>
+    </div>
   );
 }
 
@@ -720,205 +882,59 @@ const styles: Record<
   string,
   React.CSSProperties
 > = {
-
-  page: {
-    minHeight: "100vh",
-    background: "#f8fafc",
-    color: "#0f172a",
-    padding: "28px 16px 60px",
-    fontFamily:
-      "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
-  },
-
-  container: {
-    width: "100%",
-    maxWidth: 1120,
-    margin: "0 auto",
-  },
-
-  header: {
-    textAlign: "center",
-    marginBottom: 30,
-  },
-
-  backButton: {
-    border: "1px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#334155",
-    borderRadius: 10,
-    padding: "9px 13px",
-    fontSize: 12,
-    fontWeight: 800,
-    cursor: "pointer",
-    marginBottom: 18,
-  },
-
-  badge: {
-    display: "inline-flex",
-    background: "#ede9fe",
-    color: "#6d28d9",
-    borderRadius: 999,
-    padding: "7px 13px",
-    fontSize: 11,
-    fontWeight: 800,
-  },
-
-  heroTitle: {
-    fontSize: "clamp(32px, 7vw, 54px)",
-    lineHeight: 1.05,
-    margin: "15px 0 0",
-    fontWeight: 900,
-    letterSpacing: "-2px",
-  },
-
-  heroText: {
-    color: "#64748b",
-    fontSize: 15,
-    margin: "10px 0 0",
-  },
-
-  videoCard: {
-    display: "flex",
-    gap: 18,
-    alignItems: "center",
+  card: {
     background: "#ffffff",
     border: "1px solid #e2e8f0",
-    borderRadius: 20,
-    padding: 15,
-    marginBottom: 18,
-    flexWrap: "wrap",
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 20,
   },
 
-  thumbnail: {
-    width: 230,
-    maxWidth: "100%",
-    aspectRatio: "16 / 9",
-    objectFit: "cover",
-    borderRadius: 14,
-  },
-
-  videoInfo: {
-    flex: 1,
-    minWidth: 220,
-  },
-
-  videoLabel: {
-    fontSize: 10,
-    fontWeight: 900,
-    color: "#64748b",
-    letterSpacing: 1,
-  },
-
-  videoTitle: {
-    margin: "7px 0 0",
-    fontSize: 20,
-    lineHeight: 1.35,
-    fontWeight: 850,
-  },
-
-  videoChannel: {
-    margin: "7px 0 0",
-    color: "#64748b",
-    fontSize: 13,
-  },
-
-  statsGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit, minmax(190px, 1fr))",
-    gap: 13,
+  darkCard: {
+    background: "#0f172a",
+    borderRadius: 16,
+    padding: 18,
   },
 
   statCard: {
     background: "#ffffff",
     border: "1px solid #e2e8f0",
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 16,
+    padding: 17,
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
   },
 
-  statTitle: {
-    color: "#64748b",
-    fontSize: 10,
-    fontWeight: 900,
-    letterSpacing: ".5px",
+  statIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    background: "#f1f5f9",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 19,
+    flexShrink: 0,
   },
 
   statValue: {
-    fontSize: 30,
-    fontWeight: 900,
-    marginTop: 8,
-  },
-
-  statDescription: {
-    color: "#94a3b8",
-    fontSize: 11,
-    marginTop: 4,
-  },
-
-  section: {
-    marginTop: 35,
-  },
-
-  sectionHeader: {
-    marginBottom: 15,
-  },
-
-  sectionTitle: {
-    margin: 0,
     fontSize: 22,
-    fontWeight: 850,
-  },
-
-  sectionSubtitle: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: 13,
-    lineHeight: 1.5,
-  },
-
-  sentimentCard: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 18,
-    padding: 20,
-    display: "flex",
-    alignItems: "center",
-    gap: 20,
-  },
-
-  sentimentScore: {
-    fontSize: 38,
     fontWeight: 900,
-    minWidth: 105,
+    lineHeight: 1.1,
   },
 
-  sentimentContent: {
-    flex: 1,
-  },
-
-  sentimentLabel: {
-    fontSize: 14,
-    fontWeight: 850,
-    marginBottom: 8,
-  },
-
-  progressBackground: {
-    height: 10,
-    background: "#e2e8f0",
-    borderRadius: 999,
-    overflow: "hidden",
-  },
-
-  progressBar: {
-    height: "100%",
-    background: "#0f172a",
-    borderRadius: 999,
-  },
-
-  sentimentText: {
+  statTitle: {
+    marginTop: 5,
     color: "#64748b",
-    fontSize: 12,
-    margin: "9px 0 0",
+    fontSize: 11,
+    fontWeight: 700,
+  },
+
+  note: {
+    margin: "12px 0 0",
+    color: "#94a3b8",
+    fontSize: 10,
   },
 
   topicGrid: {
@@ -936,7 +952,6 @@ const styles: Record<
     border: "1px solid #e2e8f0",
     borderRadius: 14,
     padding: 13,
-    background: "#ffffff",
   },
 
   topicLeft: {
@@ -954,7 +969,7 @@ const styles: Record<
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 900,
     flexShrink: 0,
   },
@@ -962,8 +977,6 @@ const styles: Record<
   topicName: {
     fontSize: 14,
     fontWeight: 700,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
   },
 
   score: {
@@ -979,13 +992,26 @@ const styles: Record<
   questionItem: {
     display: "flex",
     alignItems: "center",
-    gap: 14,
+    gap: 12,
     border: "1px solid #e2e8f0",
     borderRadius: 14,
-    padding: 15,
+    padding: 14,
     marginBottom: 10,
-    background: "#ffffff",
     flexWrap: "wrap",
+  },
+
+  questionNumber: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    background: "#0f172a",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 12,
+    fontWeight: 900,
+    flexShrink: 0,
   },
 
   questionContent: {
@@ -1015,39 +1041,6 @@ const styles: Record<
     fontWeight: 800,
   },
 
-  languageGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit, minmax(180px, 1fr))",
-    gap: 12,
-  },
-
-  languageCard: {
-    background: "#ffffff",
-    border: "1px solid #e2e8f0",
-    borderRadius: 15,
-    padding: 17,
-  },
-
-  languageName: {
-    fontSize: 16,
-    fontWeight: 850,
-  },
-
-  languageCount: {
-    marginTop: 6,
-    color: "#64748b",
-    fontSize: 12,
-  },
-
-  darkSection: {
-    marginTop: 35,
-    background: "#0f172a",
-    color: "#ffffff",
-    borderRadius: 22,
-    padding: "24px 20px",
-  },
-
   recommendGrid: {
     display: "grid",
     gridTemplateColumns:
@@ -1057,7 +1050,8 @@ const styles: Record<
 
   recommendCard: {
     background: "rgba(255,255,255,.07)",
-    border: "1px solid rgba(255,255,255,.1)",
+    border:
+      "1px solid rgba(255,255,255,.1)",
     borderRadius: 16,
     padding: 17,
   },
@@ -1089,6 +1083,7 @@ const styles: Record<
     fontSize: 17,
     lineHeight: 1.35,
     fontWeight: 800,
+    color: "#ffffff",
   },
 
   recommendReason: {
@@ -1101,7 +1096,8 @@ const styles: Record<
   planButton: {
     width: "100%",
     marginTop: 15,
-    border: "1px solid rgba(255,255,255,.15)",
+    border:
+      "1px solid rgba(255,255,255,.15)",
     borderRadius: 10,
     background: "#ffffff",
     color: "#0f172a",
@@ -1115,5 +1111,70 @@ const styles: Record<
     color: "#cbd5e1",
     fontSize: 13,
   },
-};
 
+  actionCard: {
+    border: "1px solid #e2e8f0",
+    borderRadius: 14,
+    padding: 15,
+  },
+
+  actionNumber: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    background: "#0f172a",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontWeight: 900,
+    fontSize: 12,
+  },
+
+  actionText: {
+    margin: "12px 0 0",
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 1.55,
+  },
+
+  commentItem: {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+    borderBottom: "1px solid #f1f5f9",
+    padding: "13px 0",
+  },
+
+  commentAvatar: {
+    width: 34,
+    height: 34,
+    minWidth: 34,
+    borderRadius: "50%",
+    background: "#e2e8f0",
+    color: "#334155",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: 12,
+    fontWeight: 900,
+  },
+
+  commentAuthor: {
+    fontSize: 12,
+    color: "#334155",
+    fontWeight: 800,
+  },
+
+  commentText: {
+    margin: "4px 0 0",
+    color: "#475569",
+    fontSize: 13,
+    lineHeight: 1.5,
+  },
+
+  emptyText: {
+    color: "#94a3b8",
+    fontSize: 13,
+  },
+};
