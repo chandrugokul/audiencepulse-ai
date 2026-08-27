@@ -1115,4 +1115,5 @@ const styles: Record<
     color: "#cbd5e1",
     fontSize: 13,
   }
+};
 
