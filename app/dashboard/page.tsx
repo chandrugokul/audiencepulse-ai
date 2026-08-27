@@ -1,11 +1,10 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   BarChart3,
-  CheckCircle2,
   Globe2,
   Languages,
   MessageCircleQuestion,
@@ -14,17 +13,29 @@ import {
   Users,
 } from "lucide-react";
 
-type DataSet = {
-  title: string;
-  subtitle: string;
+type AnalysisData = {
+  source?: string;
+  commentsAnalyzed: number;
+  comments: string[];
+
+  sentiment: {
+    positive: number;
+    neutral: number;
+    negative: number;
+  };
+};
+
+type DashboardData = {
   comments: number;
   positive: number;
   neutral: number;
   negative: number;
+
   languages: [string, number][];
   countries: [string, number][];
   topics: [string, number][];
   questions: [string, number][];
+
   recommendations: {
     title: string;
     score: number;
@@ -32,197 +43,92 @@ type DataSet = {
   }[];
 };
 
-const dashboardData: Record<string, DataSet> = {
-  "tamil-travel": {
-    title: "Tamil Travel Audience",
-    subtitle: "Demo analysis for Tamil + English travel audience",
-    comments: 12480,
-    positive: 68,
-    neutral: 21,
-    negative: 11,
-
-    languages: [
-      ["Tamil", 46],
-      ["English", 39],
-      ["Tamil + English", 11],
-      ["Other", 4],
-    ],
-
-    countries: [
-      ["India", 61],
-      ["UAE", 13],
-      ["Singapore", 8],
-      ["Malaysia", 6],
-      ["Other", 12],
-    ],
-
-    topics: [
-      ["Chennai travel", 94],
-      ["Budget travel", 88],
-      ["Tamil Nadu food", 82],
-      ["Hotels", 73],
-    ],
-
-    questions: [
-      ["Which places can we visit in Chennai for one day?", 436],
-      ["Can you show budget hotels?", 318],
-      ["What is the best time to visit?", 247],
-    ],
-
-    recommendations: [
-      {
-        title: "10 Best Places to Visit in Chennai",
-        score: 94,
-        reason:
-          "High repeated demand for Chennai travel recommendations.",
-      },
-      {
-        title: "Chennai Budget Travel Guide",
-        score: 89,
-        reason:
-          "Viewers repeatedly ask about low-cost travel options.",
-      },
-      {
-        title: "Best Tamil Nadu Food Road Trip",
-        score: 84,
-        reason:
-          "Food and destination requests frequently appear together.",
-      },
-    ],
-  },
-
-  "us-technology": {
-    title: "US Technology Audience",
-    subtitle: "Demo analysis for English-speaking technology audience",
-    comments: 18360,
-    positive: 74,
-    neutral: 18,
-    negative: 8,
-
-    languages: [
-      ["English", 91],
-      ["Spanish", 4],
-      ["Hindi", 2],
-      ["Other", 3],
-    ],
-
-    countries: [
-      ["USA", 54],
-      ["Canada", 14],
-      ["UK", 11],
-      ["Australia", 7],
-      ["Other", 14],
-    ],
-
-    topics: [
-      ["AI tools", 96],
-      ["Automation", 91],
-      ["SaaS", 84],
-      ["Developer tools", 79],
-    ],
-
-    questions: [
-      ["Which AI tool is best for beginners?", 528],
-      ["Can you compare these tools?", 421],
-      ["How much does this cost?", 302],
-    ],
-
-    recommendations: [
-      {
-        title: "5 AI Tools Every Beginner Should Try",
-        score: 96,
-        reason:
-          "AI tool comparisons show the strongest audience demand.",
-      },
-      {
-        title: "Best AI Automation Tools for Creators",
-        score: 92,
-        reason:
-          "Automation appears frequently in high-engagement comments.",
-      },
-      {
-        title: "AI Tools: Free vs Paid Comparison",
-        score: 87,
-        reason:
-          "Pricing and comparison questions are repeated often.",
-      },
-    ],
-  },
-
-  "hindi-finance": {
-    title: "Hindi Finance Audience",
-    subtitle: "Demo analysis for Hindi + English finance audience",
-    comments: 15720,
-    positive: 71,
-    neutral: 20,
-    negative: 9,
-
-    languages: [
-      ["Hindi", 52],
-      ["English", 28],
-      ["Hindi + English", 16],
-      ["Other", 4],
-    ],
-
-    countries: [
-      ["India", 78],
-      ["UAE", 8],
-      ["USA", 5],
-      ["Singapore", 3],
-      ["Other", 6],
-    ],
-
-    topics: [
-      ["Mutual funds", 95],
-      ["Beginner investing", 91],
-      ["Savings", 84],
-      ["Budgeting", 76],
-    ],
-
-    questions: [
-      ["How should a beginner start investing?", 612],
-      ["Which mutual fund is suitable for beginners?", 488],
-      ["How much should I save every month?", 365],
-    ],
-
-    recommendations: [
-      {
-        title: "Mutual Funds for Complete Beginners",
-        score: 95,
-        reason:
-          "Beginner investing questions dominate the comments.",
-      },
-      {
-        title: "How to Start Investing with ₹1,000",
-        score: 91,
-        reason:
-          "Viewers repeatedly ask about starting with small amounts.",
-      },
-      {
-        title: "Monthly Budget Plan for Beginners",
-        score: 83,
-        reason:
-          "Savings and budgeting requests show consistent demand.",
-      },
-    ],
-  },
-};
-
 function DashboardContent() {
   const searchParams = useSearchParams();
 
-  const datasetId =
-    searchParams.get("dataset") || "tamil-travel";
+  const [analysis, setAnalysis] =
+    useState<AnalysisData | null>(null);
 
-  const data =
-    dashboardData[datasetId] ||
-    dashboardData["tamil-travel"];
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem(
+        "audiencepulse-analysis"
+      );
+
+      if (!stored) {
+        setError(
+          "No analysis data found. Please analyze a CSV file first."
+        );
+        return;
+      }
+
+      const parsed = JSON.parse(stored);
+
+      if (
+        !parsed ||
+        !Array.isArray(parsed.comments)
+      ) {
+        setError(
+          "Invalid analysis data. Please upload the CSV again."
+        );
+        return;
+      }
+
+      setAnalysis(parsed);
+    } catch (err) {
+      console.error(err);
+
+      setError(
+        "Unable to load analysis data."
+      );
+    }
+  }, []);
+
+  const source =
+    searchParams.get("source") || "csv";
+
+  if (error) {
+    return (
+      <main style={styles.page}>
+        <div style={styles.container}>
+          <button
+            onClick={() => {
+              window.location.href = "/";
+            }}
+            style={styles.backButton}
+          >
+            <ArrowLeft size={17} />
+            Analyze another video
+          </button>
+
+          <div style={styles.errorCard}>
+            {error}
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (!analysis) {
+    return (
+      <main style={styles.page}>
+        <div style={styles.container}>
+          <div style={styles.loadingCard}>
+            Loading audience analysis...
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const data = buildDashboardData(analysis);
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
 
-        {/* Back */}
         <button
           onClick={() => {
             window.location.href = "/";
@@ -233,11 +139,12 @@ function DashboardContent() {
           Analyze another video
         </button>
 
-        {/* Header */}
         <header style={styles.header}>
           <div>
-            <div style={styles.demoBadge}>
-              🟡 DEMO DATA
+            <div style={styles.badge}>
+              {source === "csv"
+                ? "📄 CSV ANALYSIS"
+                : "▶️ YOUTUBE ANALYSIS"}
             </div>
 
             <h1 style={styles.title}>
@@ -245,19 +152,21 @@ function DashboardContent() {
             </h1>
 
             <p style={styles.subtitle}>
-              {data.subtitle}
+              Real audience insights generated from
+              your uploaded comments.
             </p>
           </div>
 
-          <div style={styles.datasetBox}>
-            <span style={{ color: "#64748b" }}>
-              Dataset:
-            </span>{" "}
-            <strong>{data.title}</strong>
+          <div style={styles.sourceBox}>
+            Source:{" "}
+            <strong>
+              {source === "csv"
+                ? "CSV Comments"
+                : "YouTube"}
+            </strong>
           </div>
         </header>
 
-        {/* Metrics */}
         <section style={styles.metricsGrid}>
 
           <Metric
@@ -285,14 +194,91 @@ function DashboardContent() {
           />
 
         </section>
+  return (
+    <main style={styles.page}>
+      <div style={styles.container}>
 
-        {/* Sentiment */}
+        <button
+          onClick={() => {
+            sessionStorage.removeItem(
+              "audiencepulse-analysis"
+            );
+
+            window.location.href = "/";
+          }}
+          style={styles.backButton}
+        >
+          <ArrowLeft size={17} />
+          Analyze another video
+        </button>
+
+        <header style={styles.header}>
+          <div>
+            <div style={styles.demoBadge}>
+              {source === "csv"
+                ? "📄 CSV ANALYSIS"
+                : "▶️ YOUTUBE ANALYSIS"}
+            </div>
+
+            <h1 style={styles.title}>
+              Audience Intelligence
+            </h1>
+
+            <p style={styles.subtitle}>
+              {source === "csv"
+                ? "Analysis generated from your uploaded YouTube comments CSV."
+                : "Audience analysis results."}
+            </p>
+          </div>
+
+          <div style={styles.datasetBox}>
+            <span style={{ color: "#64748b" }}>
+              Comments:
+            </span>{" "}
+            <strong>
+              {data.comments.toLocaleString()}
+            </strong>
+          </div>
+        </header>
+
+        {/* METRICS */}
+
+        <section style={styles.metricsGrid}>
+
+          <Metric
+            icon={<Users size={22} />}
+            title="Comments Analyzed"
+            value={data.comments.toLocaleString()}
+          />
+
+          <Metric
+            icon={<Languages size={22} />}
+            title="Languages"
+            value={String(data.languages.length)}
+          />
+
+          <Metric
+            icon={<Globe2 size={22} />}
+            title="Location Signals"
+            value={String(data.countries.length)}
+          />
+
+          <Metric
+            icon={<MessageCircleQuestion size={22} />}
+            title="Questions Found"
+            value={String(data.questions.length)}
+          />
+
+        </section>
+
+        {/* SENTIMENT */}
+
         <section style={styles.card}>
 
           <SectionHeader
             icon={<BarChart3 size={22} />}
             title="Sentiment Analysis"
-            subtitle="Overall audience reaction"
+            subtitle="Audience reaction detected from comments"
           />
 
           <div style={styles.threeGrid}>
@@ -316,167 +302,193 @@ function DashboardContent() {
             />
 
           </div>
+
         </section>
 
-        {/* Language + Country */}
+        {/* LANGUAGE + LOCATION */}
+
         <section style={styles.twoGrid}>
 
           <InsightCard
             title="Language Intelligence"
             icon={<Languages size={21} />}
           >
-            {data.languages.map(([name, value]) => (
-              <ProgressRow
-                key={name}
-                name={name}
-                value={value}
-              />
-            ))}
+            {data.languages.map(
+              ([name, value]) => (
+                <ProgressRow
+                  key={name}
+                  name={name}
+                  value={value}
+                />
+              )
+            )}
           </InsightCard>
 
           <InsightCard
             title="Location Signals"
             icon={<Globe2 size={21} />}
           >
-            {data.countries.map(([name, value]) => (
-              <ProgressRow
-                key={name}
-                name={name}
-                value={value}
-              />
-            ))}
+            {data.countries.map(
+              ([name, value]) => (
+                <ProgressRow
+                  key={name}
+                  name={name}
+                  value={value}
+                />
+              )
+            )}
 
             <p style={styles.note}>
-              Location values are inferred signals for this
-              demo and do not represent exact viewer locations.
+              Location cannot be reliably detected
+              from ordinary comment text. This section
+              shows only signals available from the CSV.
             </p>
           </InsightCard>
 
         </section>
 
-        {/* Topics */}
+        {/* TOPICS */}
+
         <section style={styles.card}>
 
           <SectionHeader
-            icon={<TrendingUp size={21} />}
+            icon={<Sparkles size={21} />}
             title="Trending Topics & Demand"
-            subtitle="Topics your audience appears to care about"
+            subtitle="Topics detected from uploaded comments"
           />
 
           <div style={styles.topicGrid}>
 
-            {data.topics.map(([topic, score], index) => (
-              <div
-                key={topic}
-                style={styles.topicItem}
-              >
-                <div style={styles.topicLeft}>
+            {data.topics.map(
+              ([topic, score], index) => (
+                <div
+                  key={topic}
+                  style={styles.topicItem}
+                >
+                  <div style={styles.topicLeft}>
 
-                  <span style={styles.rank}>
-                    {index + 1}
+                    <span style={styles.rank}>
+                      {index + 1}
+                    </span>
+
+                    <span style={styles.topicName}>
+                      {topic}
+                    </span>
+
+                  </div>
+
+                  <span style={styles.score}>
+                    {score}/100
                   </span>
-
-                  <span style={styles.topicName}>
-                    {topic}
-                  </span>
-
                 </div>
-
-                <span style={styles.score}>
-                  {score}/100
-                </span>
-              </div>
-            ))}
+              )
+            )}
 
           </div>
+
         </section>
 
-        {/* Questions */}
+        {/* QUESTIONS */}
+
         <section style={styles.card}>
 
           <SectionHeader
-            icon={<MessageCircleQuestion size={21} />}
+            icon={
+              <MessageCircleQuestion size={21} />
+            }
             title="Audience Question Miner"
-            subtitle="Questions repeatedly appearing in audience comments"
+            subtitle="Questions detected in the uploaded comments"
           />
 
-          <div>
+          {data.questions.length === 0 ? (
+            <p style={styles.emptyText}>
+              No questions were detected in this CSV.
+            </p>
+          ) : (
+            data.questions.map(
+              ([question, count]) => (
+                <div
+                  key={question}
+                  style={styles.questionItem}
+                >
 
-            {data.questions.map(([question, count]) => (
-              <div
-                key={question}
-                style={styles.questionItem}
-              >
+                  <div style={{ flex: 1 }}>
+                    <p style={styles.questionText}>
+                      {question}
+                    </p>
 
-                <div style={{ flex: 1 }}>
-                  <p style={styles.questionText}>
-                    {question}
-                  </p>
+                    <p style={styles.questionCount}>
+                      Detected in audience comments
+                    </p>
+                  </div>
 
-                  <p style={styles.questionCount}>
-                    Asked {count.toLocaleString()} times
-                  </p>
+                  <span style={styles.opportunity}>
+                    Opportunity
+                  </span>
+
                 </div>
+              )
+            )
+          )}
 
-                <span style={styles.opportunity}>
-                  Opportunity
-                </span>
-
-              </div>
-            ))}
-
-          </div>
         </section>
 
-        {/* Recommendations */}
+        {/* RECOMMENDATIONS */}
+
         <section style={styles.darkCard}>
 
           <SectionHeader
             icon={<Sparkles size={23} />}
             title="What Should You Create Next?"
-            subtitle="Demo content opportunity engine"
+            subtitle="Content opportunities generated from your CSV"
             dark
           />
 
           <div style={styles.recommendGrid}>
 
-            {data.recommendations.map((item, index) => (
-              <div
-                key={item.title}
-                style={styles.recommendCard}
-              >
+            {data.recommendations.map(
+              (item, index) => (
+                <div
+                  key={`${item.title}-${index}`}
+                  style={styles.recommendCard}
+                >
 
-                <div style={styles.recommendTop}>
+                  <div style={styles.recommendTop}>
 
-                  <span style={styles.number}>
-                    #{index + 1}
-                  </span>
+                    <span style={styles.number}>
+                      #{index + 1}
+                    </span>
 
-                  <span style={styles.recommendScore}>
-                    {item.score}/100
-                  </span>
+                    <span
+                      style={styles.recommendScore}
+                    >
+                      {item.score}/100
+                    </span>
+
+                  </div>
+
+                  <h3
+                    style={styles.recommendTitle}
+                  >
+                    {item.title}
+                  </h3>
+
+                  <p
+                    style={styles.recommendReason}
+                  >
+                    {item.reason}
+                  </p>
 
                 </div>
-
-                <h3 style={styles.recommendTitle}>
-                  {item.title}
-                </h3>
-
-                <p style={styles.recommendReason}>
-                  {item.reason}
-                </p>
-
-                <button style={styles.planButton}>
-                  Create Content Plan
-                </button>
-
-              </div>
-            ))}
+              )
+            )}
 
           </div>
+
         </section>
 
-        {/* Action Plan */}
+        {/* ACTION PLAN */}
+
         <section style={styles.card}>
 
           <SectionHeader
@@ -488,32 +500,37 @@ function DashboardContent() {
 
             <Action
               number="1"
-              text={`Create content around "${data.topics[0][0]}".`}
+              text={`Focus on "${data.topics[0]?.[0] || "Audience Discussion"}".`}
             />
 
             <Action
               number="2"
-              text={`Answer the audience question: "${data.questions[0][0]}"`}
+              text={
+                data.questions[0]?.[0]
+                  ? `Answer: "${data.questions[0][0]}"`
+                  : "Create content based on repeated audience comments."
+              }
             />
 
             <Action
               number="3"
-              text={`Prioritize the topic with a ${data.topics[0][1]}/100 demand score.`}
+              text={`Use the highest demand score of ${
+                data.topics[0]?.[1] || 0
+              }/100 to prioritize your next video.`}
             />
 
           </div>
+
         </section>
 
         <footer style={styles.footer}>
-          AudiencePulse AI • POC Demo • Data shown is simulated
+          AudiencePulse AI • CSV Analysis • POC
         </footer>
 
       </div>
     </main>
   );
 }
-
-/* ---------------- Components ---------------- */
 
 function Metric({
   icon,
@@ -586,6 +603,7 @@ function ProgressRow({
 
       <div style={styles.progressTop}>
         <span>{name}</span>
+
         <strong>{value}%</strong>
       </div>
 
@@ -601,32 +619,6 @@ function ProgressRow({
     </div>
   );
 }
-
-function InsightCard({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div style={styles.card}>
-
-      <div style={styles.sectionHeader}>
-        {icon}
-        <h2 style={styles.sectionTitle}>
-          {title}
-        </h2>
-      </div>
-
-      {children}
-
-    </div>
-  );
-}
-
 function SectionHeader({
   icon,
   title,
@@ -640,38 +632,62 @@ function SectionHeader({
 }) {
   return (
     <div style={styles.sectionHeader}>
-
-      <div
-        style={{
-          color: dark ? "#fff" : "#0f172a",
-        }}
-      >
+      <div style={dark ? styles.darkSectionIcon : styles.sectionIcon}>
         {icon}
       </div>
 
       <div>
         <h2
-          style={{
-            ...styles.sectionTitle,
-            color: dark ? "#fff" : "#0f172a",
-          }}
+          style={
+            dark
+              ? styles.darkSectionTitle
+              : styles.sectionTitle
+          }
         >
           {title}
         </h2>
 
         {subtitle && (
           <p
-            style={{
-              ...styles.sectionSubtitle,
-              color: dark ? "#94a3b8" : "#64748b",
-            }}
+            style={
+              dark
+                ? styles.darkSectionSubtitle
+                : styles.sectionSubtitle
+            }
           >
             {subtitle}
           </p>
         )}
       </div>
-
     </div>
+  );
+}
+
+function InsightCard({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section style={styles.card}>
+      <div style={styles.sectionHeader}>
+        <div style={styles.sectionIcon}>
+          {icon}
+        </div>
+
+        <h2 style={styles.sectionTitle}>
+          {title}
+        </h2>
+      </div>
+
+      <div style={{ marginTop: 22 }}>
+        {children}
+      </div>
+    </section>
   );
 }
 
@@ -684,7 +700,6 @@ function Action({
 }) {
   return (
     <div style={styles.actionCard}>
-
       <div style={styles.actionNumber}>
         {number}
       </div>
@@ -692,188 +707,193 @@ function Action({
       <p style={styles.actionText}>
         {text}
       </p>
-
     </div>
   );
 }
 
-/* ---------------- Styles ---------------- */
-
-const styles: Record<string, React.CSSProperties> = {
+const styles: Record<
+  string,
+  React.CSSProperties
+> = {
   page: {
     minHeight: "100vh",
     background: "#f8fafc",
     color: "#0f172a",
-    padding: "24px 16px",
+    padding: "24px 14px 60px",
     fontFamily:
       "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
   },
 
   container: {
     width: "100%",
-    maxWidth: 1200,
+    maxWidth: 1120,
     margin: "0 auto",
   },
 
   backButton: {
     display: "inline-flex",
     alignItems: "center",
-    gap: 8,
+    gap: 7,
     border: "none",
     background: "transparent",
-    cursor: "pointer",
-    fontWeight: 600,
     color: "#475569",
-    padding: "8px 0",
-    marginBottom: 22,
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+    padding: "7px 0",
+    marginBottom: 20,
   },
 
   header: {
     display: "flex",
-    justifyContent: "space-between",
     alignItems: "flex-end",
+    justifyContent: "space-between",
     gap: 20,
-    flexWrap: "wrap",
-    marginBottom: 28,
+    marginBottom: 25,
   },
 
   demoBadge: {
-    display: "inline-block",
+    display: "inline-flex",
+    alignItems: "center",
     background: "#fef3c7",
     color: "#92400e",
-    padding: "7px 12px",
     borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 800,
-    marginBottom: 12,
+    padding: "6px 10px",
+    fontSize: 10,
+    fontWeight: 900,
+    marginBottom: 10,
   },
 
   title: {
-    fontSize: "clamp(30px, 6vw, 44px)",
-    lineHeight: 1.1,
     margin: 0,
-    fontWeight: 800,
-    letterSpacing: "-1px",
+    fontSize: "clamp(32px, 7vw, 52px)",
+    lineHeight: 1.05,
+    letterSpacing: "-1.8px",
+    fontWeight: 900,
   },
 
   subtitle: {
+    margin: "8px 0 0",
     color: "#64748b",
-    marginTop: 10,
-    fontSize: 15,
+    fontSize: 14,
+    lineHeight: 1.6,
   },
 
   datasetBox: {
-    background: "#fff",
     border: "1px solid #e2e8f0",
+    background: "#ffffff",
     borderRadius: 12,
-    padding: "12px 16px",
-    fontSize: 14,
-    boxShadow: "0 2px 8px rgba(15,23,42,.04)",
+    padding: "10px 13px",
+    fontSize: 12,
+    whiteSpace: "nowrap",
   },
 
   metricsGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(210px, 1fr))",
-    gap: 16,
-    marginBottom: 18,
+      "repeat(auto-fit, minmax(190px, 1fr))",
+    gap: 12,
+    marginBottom: 14,
   },
 
   metricCard: {
-    background: "#fff",
+    background: "#ffffff",
     border: "1px solid #e2e8f0",
-    borderRadius: 18,
-    padding: 20,
-    boxShadow: "0 3px 12px rgba(15,23,42,.05)",
+    borderRadius: 17,
+    padding: 18,
+    boxShadow:
+      "0 5px 18px rgba(15,23,42,.04)",
   },
 
   metricIcon: {
     color: "#475569",
+    marginBottom: 12,
   },
 
   metricTitle: {
+    margin: 0,
     color: "#64748b",
-    fontSize: 14,
-    marginTop: 16,
-    marginBottom: 4,
+    fontSize: 12,
+    fontWeight: 700,
   },
 
   metricValue: {
-    fontSize: 28,
-    fontWeight: 800,
-    margin: 0,
+    margin: "5px 0 0",
+    fontSize: 25,
+    fontWeight: 900,
+    color: "#0f172a",
   },
 
   card: {
-    background: "#fff",
+    background: "#ffffff",
     border: "1px solid #e2e8f0",
-    borderRadius: 20,
-    padding: 22,
-    marginTop: 18,
-    boxShadow: "0 3px 12px rgba(15,23,42,.05)",
-  },
-
-  darkCard: {
-    background: "#0f172a",
-    borderRadius: 24,
-    padding: 24,
-    marginTop: 18,
-    color: "#fff",
-    boxShadow: "0 5px 20px rgba(15,23,42,.12)",
+    borderRadius: 19,
+    padding: "20px",
+    marginBottom: 14,
+    boxShadow:
+      "0 5px 18px rgba(15,23,42,.04)",
   },
 
   sectionHeader: {
     display: "flex",
+    alignItems: "flex-start",
+    gap: 11,
+  },
+
+  sectionIcon: {
+    width: 38,
+    height: 38,
+    minWidth: 38,
+    borderRadius: 11,
+    background: "#f1f5f9",
+    color: "#334155",
+    display: "flex",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 20,
+    justifyContent: "center",
   },
 
   sectionTitle: {
     margin: 0,
-    fontSize: 20,
-    fontWeight: 800,
+    fontSize: 16,
+    fontWeight: 850,
+    color: "#0f172a",
   },
 
   sectionSubtitle: {
-    margin: "4px 0 0",
-    fontSize: 13,
+    margin: "3px 0 0",
+    color: "#94a3b8",
+    fontSize: 11,
   },
 
   threeGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(190px, 1fr))",
-    gap: 14,
-  },
-
-  twoGrid: {
-    display: "grid",
-    gridTemplateColumns:
-      "repeat(auto-fit, minmax(300px, 1fr))",
-    gap: 18,
+      "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: 10,
+    marginTop: 18,
   },
 
   sentimentCard: {
     border: "1px solid #e2e8f0",
     borderRadius: 14,
-    padding: 16,
+    padding: 13,
   },
 
   sentimentTop: {
     display: "flex",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
-    fontSize: 14,
+    gap: 8,
+    fontSize: 12,
+    color: "#475569",
   },
 
   progressBackground: {
-    height: 8,
+    height: 7,
     background: "#e2e8f0",
     borderRadius: 999,
     overflow: "hidden",
-    marginTop: 10,
+    marginTop: 9,
   },
 
   progressFill: {
@@ -882,215 +902,239 @@ const styles: Record<string, React.CSSProperties> = {
     borderRadius: 999,
   },
 
+  twoGrid: {
+    display: "grid",
+    gridTemplateColumns:
+      "repeat(auto-fit, minmax(300px, 1fr))",
+    gap: 14,
+  },
+
   progressTop: {
     display: "flex",
+    alignItems: "center",
     justifyContent: "space-between",
-    fontSize: 14,
-    marginBottom: 7,
     color: "#475569",
+    fontSize: 12,
+    marginBottom: 6,
   },
 
   note: {
+    margin: "4px 0 0",
     color: "#94a3b8",
-    fontSize: 12,
+    fontSize: 10,
     lineHeight: 1.5,
-    marginTop: 4,
   },
 
   topicGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(260px, 1fr))",
-    gap: 12,
+      "repeat(auto-fit, minmax(250px, 1fr))",
+    gap: 10,
+    marginTop: 18,
   },
 
   topicItem: {
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 12,
+    gap: 10,
     border: "1px solid #e2e8f0",
-    borderRadius: 14,
-    padding: 14,
+    borderRadius: 13,
+    padding: 11,
   },
 
   topicLeft: {
     display: "flex",
     alignItems: "center",
-    gap: 10,
+    gap: 9,
+    minWidth: 0,
   },
 
   rank: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
+    width: 27,
+    height: 27,
+    borderRadius: 8,
     background: "#f1f5f9",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontWeight: 800,
-    fontSize: 13,
+    fontSize: 11,
+    fontWeight: 900,
+    flexShrink: 0,
   },
 
   topicName: {
-    fontWeight: 700,
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: 750,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
   },
 
   score: {
     background: "#0f172a",
-    color: "#fff",
-    padding: "6px 10px",
+    color: "#ffffff",
     borderRadius: 999,
-    fontSize: 11,
-    fontWeight: 800,
+    padding: "5px 8px",
+    fontSize: 10,
+    fontWeight: 900,
     whiteSpace: "nowrap",
   },
 
   questionItem: {
     display: "flex",
     alignItems: "center",
-    gap: 16,
+    gap: 12,
     border: "1px solid #e2e8f0",
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 10,
-    flexWrap: "wrap",
+    borderRadius: 13,
+    padding: 13,
+    marginTop: 9,
   },
 
   questionText: {
     margin: 0,
-    fontWeight: 700,
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: 750,
+    color: "#334155",
     lineHeight: 1.5,
   },
 
   questionCount: {
-    margin: "5px 0 0",
-    color: "#64748b",
-    fontSize: 12,
+    margin: "4px 0 0",
+    color: "#94a3b8",
+    fontSize: 10,
   },
 
   opportunity: {
     background: "#fef3c7",
     color: "#92400e",
-    padding: "6px 10px",
     borderRadius: 999,
+    padding: "5px 8px",
+    fontSize: 9,
+    fontWeight: 900,
+    whiteSpace: "nowrap",
+  },
+
+  emptyText: {
+    color: "#94a3b8",
+    fontSize: 13,
+    margin: "18px 0 0",
+  },
+
+  darkCard: {
+    background: "#0f172a",
+    color: "#ffffff",
+    borderRadius: 19,
+    padding: 20,
+    marginBottom: 14,
+  },
+
+  darkSectionIcon: {
+    width: 38,
+    height: 38,
+    minWidth: 38,
+    borderRadius: 11,
+    background: "#1e293b",
+    color: "#ffffff",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  darkSectionTitle: {
+    margin: 0,
+    fontSize: 17,
+    fontWeight: 850,
+    color: "#ffffff",
+  },
+
+  darkSectionSubtitle: {
+    margin: "3px 0 0",
+    color: "#94a3b8",
     fontSize: 11,
-    fontWeight: 800,
   },
 
   recommendGrid: {
     display: "grid",
     gridTemplateColumns:
-      "repeat(auto-fit, minmax(260px, 1fr))",
-    gap: 14,
+      "repeat(auto-fit, minmax(230px, 1fr))",
+    gap: 11,
+    marginTop: 18,
   },
 
   recommendCard: {
-    background: "rgba(255,255,255,.08)",
-    border: "1px solid rgba(255,255,255,.10)",
-    borderRadius: 18,
-    padding: 18,
+    background: "#172033",
+    border: "1px solid #273449",
+    borderRadius: 14,
+    padding: 16,
   },
 
   recommendTop: {
     display: "flex",
+    alignItems: "center",
     justifyContent: "space-between",
+    gap: 10,
   },
 
   number: {
     color: "#94a3b8",
-    fontWeight: 800,
-  },
-
-  recommendScore: {
-    background: "#fff",
-    color: "#0f172a",
-    padding: "6px 10px",
-    borderRadius: 999,
     fontSize: 11,
     fontWeight: 800,
   },
 
+  recommendScore: {
+    background: "#ffffff",
+    color: "#0f172a",
+    borderRadius: 999,
+    padding: "5px 8px",
+    fontSize: 9,
+    fontWeight: 900,
+  },
+
   recommendTitle: {
-    fontSize: 18,
-    lineHeight: 1.3,
-    margin: "18px 0 0",
+    margin: "22px 0 0",
+    color: "#ffffff",
+    fontSize: 15,
+    lineHeight: 1.35,
+    fontWeight: 850,
   },
 
   recommendReason: {
-    color: "#cbd5e1",
-    fontSize: 13,
-    lineHeight: 1.6,
-    minHeight: 62,
-  },
-
-  planButton: {
-    width: "100%",
-    border: "none",
-    borderRadius: 12,
-    padding: "12px 14px",
-    background: "#fff",
-    color: "#0f172a",
-    fontWeight: 800,
-    cursor: "pointer",
-    marginTop: 10,
+    margin: "9px 0 0",
+    color: "#94a3b8",
+    fontSize: 11,
+    lineHeight: 1.5,
   },
 
   actionCard: {
     border: "1px solid #e2e8f0",
     borderRadius: 14,
-    padding: 16,
+    padding: 14,
   },
 
   actionNumber: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
+    width: 28,
+    height: 28,
+    borderRadius: 9,
     background: "#0f172a",
-    color: "#fff",
+    color: "#ffffff",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    fontSize: 13,
-    fontWeight: 800,
-    marginBottom: 12,
+    fontSize: 11,
+    fontWeight: 900,
   },
 
   actionText: {
+    margin: "12px 0 0",
     color: "#475569",
-    fontSize: 13,
-    lineHeight: 1.6,
-    margin: 0,
+    fontSize: 12,
+    lineHeight: 1.55,
   },
 
   footer: {
     textAlign: "center",
     color: "#94a3b8",
     fontSize: 11,
-    padding: "32px 0 12px",
+    paddingTop: 18,
   },
 };
-
-export default function DashboardPage() {
-  return (
-    <Suspense
-      fallback={
-        <div
-          style={{
-            minHeight: "100vh",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontFamily: "system-ui",
-          }}
-        >
-          Loading AudiencePulse...
-        </div>
-      }
-    >
-      <DashboardContent />
-    </Suspense>
-  );
-}
